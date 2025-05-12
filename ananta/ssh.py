@@ -17,6 +17,8 @@ async def retry_connect(
     last_error: asyncssh.Error | asyncio.TimeoutError | None = None
     algorithm_options = {
         "encryption_algs": [
+            "aes128-gcm@openssh.com",
+            "aes256-gcm@openssh.com",
             "chacha20-poly1305@openssh.com",
             "aes128-ctr",
             "aes256-ctr",
