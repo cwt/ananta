@@ -188,9 +188,10 @@ async def execute(
             output = await execute_command(
                 conn, ssh_command, remote_width, color
             )
-            # Put output into the host's output queue
+            # Put the output into the host's output queue
             await output_queue.put(output)
         else:
+            # Stream the output to the host's output queue
             await stream_command_output(
                 conn, ssh_command, remote_width, output_queue, color
             )

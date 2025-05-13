@@ -15,9 +15,9 @@ def get_hosts(host_file: str, host_tags: str | None) -> Tuple[List, int]:
                 # Process the row only if it is not empty and not a comment
                 try:
                     host_name, ip_address, str_port, username = row[:4]
-                    ssh_port = int(str_port)
-                    key_path = row[4] if len(row) > 4 else ""
-                    tags = row[5] if len(row) > 5 else ""
+                    ssh_port = int(str_port)  # Port number must be an integer
+                    key_path = row[4] if len(row) > 4 else ""  # Optional
+                    tags = row[5] if len(row) > 5 else ""  # Optional
                 except IndexError:
                     print(
                         f"Hosts file: {host_file} row {row_line} is incomplete. Skipping!"

@@ -24,7 +24,7 @@ try:
     else:
         import uvloop
 except ImportError:
-    pass
+    pass  # uvloop or winloop is an optional for speedup, not a requirement
 
 
 async def main(
@@ -50,6 +50,7 @@ async def main(
     # Create a lock for synchronizing output printing
     print_lock = asyncio.Lock()
 
+    # Create a separate task for each host to print the output
     print_tasks = [
         print_output(
             host_name,
@@ -65,6 +66,7 @@ async def main(
     ]
     asyncio.ensure_future(asyncio.gather(*print_tasks))
 
+    # Create a task for each host to execute the SSH command
     tasks = [
         execute(
             host_name,
@@ -83,6 +85,7 @@ async def main(
         for host_name, ip_address, ssh_port, username, key_path in hosts_to_execute
     ]
 
+    # Execute all tasks concurrently
     await asyncio.gather(*tasks)
 
     # Put None in each host's output queue to signal the end of printing
@@ -169,6 +172,7 @@ def run_cli() -> None:
     if uvloop:
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     if args.version:
+        # Print the version of Ananta with the asyncio event loop module
         print(
             f"Ananta-{__version__} "
             f"powered by {asyncio.get_event_loop_policy().__module__}"
@@ -177,13 +181,14 @@ def run_cli() -> None:
     host_file: str | None = args.host_file
     ssh_command: str = " ".join(args.command)
     if (host_file is None) or (not ssh_command.strip()):
-        parser.print_help()
+        parser.print_help()  # Print help message if no arguments are provided
         sys.exit(0)
     try:
         local_display_width: int = args.terminal_width or int(
             os.environ.get("COLUMNS", os.get_terminal_size().columns)
-        )
+        )  # Try to get terminal width as best as possible
     except OSError:
+        # If unable to get terminal size, default to 80
         local_display_width = args.terminal_width or 80  # type: ignore
     color = not args.no_color
     asyncio.run(

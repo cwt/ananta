@@ -6,9 +6,9 @@ import asyncio
 import re
 
 COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
-shuffle(COLORS)
-COLORS_CYCLE = cycle(COLORS)
-HOST_COLOR: Dict[str, str] = {}
+shuffle(COLORS)  # Shuffle colors for randomness
+COLORS_CYCLE = cycle(COLORS)  # Create a cycle iterator for colors
+HOST_COLOR: Dict[str, str] = {}  # Dictionary to store host colors
 
 # Pattern to match common cursor control and screen clear ANSI codes
 ansi_cursor_control = re.compile(
@@ -55,6 +55,7 @@ def adjust_cursor_with_prompt(
 def _get_host_color(host_name: str) -> str:
     """Get the color associated with the host name."""
     if HOST_COLOR.get(host_name) is None:
+        # If the host name is not in the dictionary, assign a new color
         HOST_COLOR[host_name] = next(COLORS_CYCLE)
     return HOST_COLOR[host_name]
 
