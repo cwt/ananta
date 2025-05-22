@@ -1,4 +1,6 @@
 from ananta.config import get_hosts
+from unittest.mock import patch
+import sys
 
 # Sample CSV content for testing
 HOSTS_CSV_CONTENT = """# This is a comment line
@@ -10,8 +12,72 @@ host-5,10.0.0.5,22,user5,#
 host-6,10.0.0.6,bad-port-format,user6,#, Tag With Space
 """
 
+# Sample TOML content for testing
+HOSTS_TOML_CONTENT_VALID = """
+[default]
+port = 2222
+username = "default_user"
+key_path = "/default/key.pem"
+tags = ["common"]
 
-# Test successful parsing and no tag filtering
+[host-toml-1]
+ip = "192.168.1.1"
+
+[host-toml-2]
+ip = "192.168.1.2"
+port = 22
+username = "toml_user2"
+tags = ["web", "prod"]
+
+[host-toml-3]
+ip = "192.168.1.3"
+key_path = "#"
+tags = ["db", "prod"]
+
+["host-toml-4 with space"]
+ip = "192.168.1.4"
+username = "another_user"
+"""
+
+HOSTS_TOML_CONTENT_NO_DEFAULTS = """
+[host-no-default-1]
+ip = "10.10.0.1"
+port = 22
+username = "nodef_user1"
+key_path = "/key1.pem"
+tags = ["special"]
+"""
+
+HOSTS_TOML_CONTENT_MALFORMED_PORT = """
+[host-bad-port]
+ip = "10.20.0.1"
+port = "not-an-integer"
+username = "badportuser"
+"""
+
+HOSTS_TOML_CONTENT_MISSING_IP = """
+[host-missing-ip]
+port = 22
+username = "noipuser"
+"""
+
+HOSTS_TOML_CONTENT_MISSING_USERNAME = """
+[default]
+username = "default_user_for_test"
+
+[host-missing-username]
+ip = "10.30.0.1"
+"""
+
+HOSTS_TOML_CONTENT_ONLY_DEFAULT = """
+[default]
+port = 22
+username = "only_default"
+"""
+
+# === CSV Tests ===
+
+
 def test_get_hosts_no_tags(tmp_path):
     """Tests parsing the hosts file without any tag filtering."""
     p = tmp_path / "hosts.csv"
@@ -29,7 +95,6 @@ def test_get_hosts_no_tags(tmp_path):
     assert hosts[3] == ("host-5", "10.0.0.5", 22, "user5", "#")
 
 
-# Test tag filtering
 def test_get_hosts_with_tags(tmp_path):
     """Tests parsing with tag filtering."""
     p = tmp_path / "hosts.csv"
@@ -59,7 +124,6 @@ def test_get_hosts_with_tags(tmp_path):
     assert max_len_zero == 0
 
 
-# Test handling of malformed lines (should be skipped)
 def test_get_hosts_skips_malformed(tmp_path, capsys):
     """Tests that lines with format errors (like non-integer port) are skipped."""
     p = tmp_path / "hosts.csv"
@@ -74,5 +138,253 @@ def test_get_hosts_skips_malformed(tmp_path, capsys):
     # Check if the error message was printed (optional, requires capsys fixture)
     captured = capsys.readouterr()
     assert (
-        f"Hosts file: {str(p)} parse error at row 7" in captured.out
+        f"Hosts file (CSV): '{str(p)}' parse error at row 7 (port must be an integer). Skipping!"
+        in captured.out
     )  # Row numbers start from 1
+
+
+# === TOML Tests ===
+
+
+def test_get_hosts_toml_valid_with_defaults(tmp_path):
+    """Test parsing TOML hosts file with default values."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_VALID, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 4
+    assert max_len == 22  # Longest host name: "host-toml-4 with space"
+    expected_hosts_dict = {
+        "host-toml-1": (
+            "host-toml-1",
+            "192.168.1.1",
+            2222,
+            "default_user",
+            "/default/key.pem",
+        ),
+        "host-toml-2": (
+            "host-toml-2",
+            "192.168.1.2",
+            22,
+            "toml_user2",
+            "/default/key.pem",
+        ),
+        "host-toml-3": (
+            "host-toml-3",
+            "192.168.1.3",
+            2222,
+            "default_user",
+            "#",
+        ),
+        "host-toml-4 with space": (
+            "host-toml-4 with space",
+            "192.168.1.4",
+            2222,
+            "another_user",
+            "/default/key.pem",
+        ),
+    }
+    for host_data in hosts:
+        assert host_data == expected_hosts_dict[host_data[0]]
+
+
+def test_get_hosts_toml_no_defaults(tmp_path):
+    """Test parsing TOML hosts file without default section."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_NO_DEFAULTS, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 1
+    assert max_len == 17  # Host name: "host-no-default-1"
+    assert hosts[0] == (
+        "host-no-default-1",
+        "10.10.0.1",
+        22,
+        "nodef_user1",
+        "/key1.pem",
+    )
+
+
+def test_get_hosts_toml_with_tags_filter_on_default_tags(tmp_path):
+    """Test parsing TOML hosts file with tag filtering."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_VALID, encoding="utf-8")
+    hosts_prod, max_len = get_hosts(str(p), "common")
+    assert len(hosts_prod) == 4
+    assert {h[0] for h in hosts_prod} == {
+        "host-toml-1",
+        "host-toml-2",
+        "host-toml-3",
+        "host-toml-4 with space",
+    }
+    assert max_len == 22  # Longest host name: "host-toml-4 with space"
+
+
+def test_get_hosts_toml_with_tags_filter(tmp_path):
+    """Test parsing TOML hosts file with tag filtering."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_VALID, encoding="utf-8")
+    hosts_prod, max_len = get_hosts(str(p), "prod")
+    assert len(hosts_prod) == 2
+    assert {h[0] for h in hosts_prod} == {"host-toml-2", "host-toml-3"}
+    assert max_len == 11  # Longest host name: "host-toml-3"
+
+
+def test_get_hosts_toml_malformed_port(tmp_path, capsys):
+    """Test TOML parsing skips hosts with non-integer port."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_MALFORMED_PORT, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 0
+    assert max_len == 0
+    captured = capsys.readouterr()
+    assert "Error parsing port for host 'host-bad-port'" in captured.out
+
+
+def test_get_hosts_toml_missing_ip(tmp_path, capsys):
+    """Test TOML parsing skips hosts missing IP address."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_MISSING_IP, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 0
+    assert max_len == 0
+    captured = capsys.readouterr()
+    assert "is missing 'ip' or 'ip' is not a string. Skipping!" in captured.out
+
+
+def test_get_hosts_toml_missing_username_no_default(tmp_path, capsys):
+    """Test TOML parsing skips hosts missing username without default."""
+    toml_content_no_user = """
+[host-no-user]
+ip = "1.2.3.4"
+"""
+    p = tmp_path / "hosts.toml"
+    p.write_text(toml_content_no_user, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 0
+    assert max_len == 0
+    captured = capsys.readouterr()
+    assert (
+        "is missing 'username' or 'username' is not a string. Skipping!"
+        in captured.out
+    )
+
+
+def test_get_hosts_toml_uses_default_username_if_host_missing(tmp_path):
+    """Test TOML parsing uses default username if host username is missing."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_MISSING_USERNAME, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 1
+    assert max_len == 21  # Host name: "host-missing-username"
+    assert hosts[0][3] == "default_user_for_test"
+
+
+def test_get_hosts_toml_only_default_section(tmp_path):
+    """Test parsing TOML file with only default section returns no hosts."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_ONLY_DEFAULT, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert hosts == []
+    assert max_len == 0
+
+
+def test_get_hosts_toml_file_not_found(tmp_path, capsys):
+    """Test TOML file not found returns empty hosts list."""
+    p = tmp_path / "nonexistent.toml"
+    hosts, max_len = get_hosts(str(p), None)
+    assert hosts == []
+    assert max_len == 0
+    captured = capsys.readouterr()
+    assert "Error: TOML hosts file not found" in captured.out
+
+
+@patch("ananta.config.tomllib", None)
+@patch("ananta.config.sys.version_info", (3, 10, 0))
+def test_get_hosts_toml_python310_tomli_not_installed(tmp_path, capsys):
+    """Test TOML parsing fails on Python 3.10 if tomli is not installed."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_VALID, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert hosts == []
+    assert max_len == 0
+    captured = capsys.readouterr()
+    assert (
+        "TOML host file ('hosts.toml') requires 'tomli' to be installed on Python < 3.11"
+        in captured.out
+    )
+
+
+@patch("ananta.config.tomllib.load")
+@patch("ananta.config.sys.version_info", (3, 11, 0))
+def test_get_hosts_toml_python311_uses_tomllib(mock_tomllib_load, tmp_path):
+    """Test TOML parsing on Python 3.11 uses tomllib."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_NO_DEFAULTS, encoding="utf-8")
+    mock_tomllib_load.return_value = {
+        "host-no-default-1": {
+            "ip": "10.10.0.1",
+            "port": 22,
+            "username": "nodef_user1",
+            "key_path": "/key1.pem",
+            "tags": ["special"],
+        }
+    }
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 1
+    assert max_len == 17
+    assert hosts[0] == (
+        "host-no-default-1",
+        "10.10.0.1",
+        22,
+        "nodef_user1",
+        "/key1.pem",
+    )
+    mock_tomllib_load.assert_called_once()
+
+
+def test_get_hosts_toml_python310_tomli_missing(tmp_path, capsys):
+    """Test TOML parsing on Python 3.10 when tomli is not installed."""
+    with (
+        patch("ananta.config.tomllib", None),
+        patch.object(sys, "version_info", (3, 10, 0)),
+    ):
+        # Import get_hosts after patching to avoid premature module loading
+        from ananta.config import get_hosts as test_get_hosts
+
+        p = tmp_path / "hosts.toml"
+        p.write_text(HOSTS_TOML_CONTENT_NO_DEFAULTS, encoding="utf-8")
+        hosts, max_len = test_get_hosts(str(p), None)
+        assert len(hosts) == 0
+        assert max_len == 0
+        captured = capsys.readouterr()
+        assert (
+            "TOML host file ('hosts.toml') requires 'tomli' to be installed on Python < 3.11"
+            in captured.out
+        )
+
+
+@patch("ananta.config.tomllib.load")
+@patch("ananta.config.sys.version_info", (3, 10, 0))
+def test_get_hosts_toml_python310_tomli_installed(mock_tomllib_load, tmp_path):
+    """Test TOML parsing on Python 3.10 when tomli is installed."""
+    p = tmp_path / "hosts.toml"
+    p.write_text(HOSTS_TOML_CONTENT_NO_DEFAULTS, encoding="utf-8")
+    mock_tomllib_load.return_value = {
+        "host-no-default-1": {
+            "ip": "10.10.0.1",
+            "port": 22,
+            "username": "nodef_user1",
+            "key_path": "/key1.pem",
+            "tags": ["special"],
+        }
+    }
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 1
+    assert max_len == 17
+    assert hosts[0] == (
+        "host-no-default-1",
+        "10.10.0.1",
+        22,
+        "nodef_user1",
+        "/key1.pem",
+    )
+    mock_tomllib_load.assert_called_once()
