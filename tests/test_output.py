@@ -11,8 +11,10 @@ from ananta.output import (
     MAGENTA,
     CYAN,
     RESET,  # Import colors
+    print_output,
 )
-import re
+from unittest.mock import AsyncMock, patch
+
 
 ALL_COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
 
@@ -148,3 +150,59 @@ def test_adjust_cursor_with_control(line_input, expected_output_with_control):
         max_name_length=len(prompt) - 3,
     )
     assert adjusted == expected_output_with_control.rstrip()
+
+
+@pytest.mark.asyncio
+async def test_print_output_separate_output(capsys):
+    """Test print_output with separate_output=True."""
+    queue = AsyncMock()
+    queue.get.side_effect = [
+        "line1\nline2\n",  # Multiline output
+        None,  # Signal end
+    ]
+    lock = AsyncMock()
+    with patch("ananta.output.print") as mock_print:
+        await print_output(
+            host_name="host-1",
+            max_name_length=7,
+            allow_empty_line=True,
+            allow_cursor_control=False,
+            separate_output=True,
+            print_lock=lock,
+            output_queue=queue,
+            color=False,
+        )
+        # Verify print calls
+        expected_prompt = "[ host-1] "
+        mock_print.assert_any_call(f"{expected_prompt}line1{RESET}")
+        mock_print.assert_any_call(f"{expected_prompt}line2{RESET}")
+        # Verify lock was used
+        lock.__aenter__.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_print_output_interleaved(capsys):
+    """Test print_output with separate_output=False."""
+    queue = AsyncMock()
+    queue.get.side_effect = [
+        "line1\n",  # Single line
+        "",  # Empty line
+        None,  # Signal end
+    ]
+    lock = AsyncMock()
+    with patch("ananta.output.print") as mock_print:
+        await print_output(
+            host_name="host-2",
+            max_name_length=7,
+            allow_empty_line=False,
+            allow_cursor_control=False,
+            separate_output=False,
+            print_lock=lock,
+            output_queue=queue,
+            color=False,
+        )
+        # Verify only non-empty line printed
+        expected_prompt = "[ host-2] "
+        mock_print.assert_called_once_with(f"{expected_prompt}line1{RESET}")
+        # Verify lock was used for each line
+        lock.__aenter__.assert_called()

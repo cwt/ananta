@@ -388,3 +388,64 @@ def test_get_hosts_toml_python310_tomli_installed(mock_tomllib_load, tmp_path):
         "/key1.pem",
     )
     mock_tomllib_load.assert_called_once()
+
+
+def test_get_hosts_toml_without_ip(tmp_path, capsys):
+    """Test handling missing IP in TOML."""
+    toml_content = """
+[default]
+port = 22
+[host-1]
+ip = "10.0.0.1"
+username = "user"
+[host-invalid]
+invalid = "something"
+"""
+    p = tmp_path / "hosts.toml"
+    p.write_text(toml_content, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 1
+    assert hosts[0][0] == "host-1"
+    captured = capsys.readouterr()
+    assert "is missing 'ip' or 'ip' is not a string." in captured.out
+
+
+def test_get_hosts_toml_invalid_tags(tmp_path, capsys):
+    """Test handling invalid tags in TOML (lines 160-164)."""
+    toml_content = """
+[host-1]
+ip = "10.0.0.1"
+username = "user"
+tags = "not-a-list"
+"""
+    p = tmp_path / "hosts.toml"
+    p.write_text(toml_content, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 1  # Host still included, tags treated as empty
+    captured = capsys.readouterr()
+    assert "invalid 'tags' (must be a list of strings)" in captured.out
+
+
+def test_get_hosts_csv_incomplete_row(tmp_path, capsys):
+    """Test skipping incomplete CSV rows (lines 215, 222-226)."""
+    csv_content = """
+host-1,10.0.0.1,22,user1,#,web
+host-2,10.0.0.2  # Incomplete row
+"""
+    p = tmp_path / "hosts.csv"
+    p.write_text(csv_content, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 1
+    assert hosts[0][0] == "host-1"
+    captured = capsys.readouterr()
+    assert "row 3 is incomplete" in captured.out
+
+
+def test_get_hosts_csv_file_not_found(tmp_path, capsys):
+    """Test FileNotFoundError in CSV parsing (lines 193-200)."""
+    p = tmp_path / "nonexistent.csv"
+    hosts, max_len = get_hosts(str(p), None)
+    assert hosts == []
+    assert max_len == 0
+    captured = capsys.readouterr()
+    assert "Error: CSV hosts file not found" in captured.out
