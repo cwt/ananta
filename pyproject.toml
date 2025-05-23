@@ -34,6 +34,7 @@ mypy = "^1.15.0"
 black = "^25.1.0"
 pytest = "^8.3.0"
 pytest-asyncio = "^0.26.0"
+pytest-cov = "^6.1.0"
 tomli = {version = ">=1.0.0,<3.0.0", optional = true}
 
 [tool.pytest.ini_options]
