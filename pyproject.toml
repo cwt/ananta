@@ -1,6 +1,6 @@
 [project]
 name = "ananta"
-version = "1.2.0"
+version = "1.2.1"
 description = "A command-line tool to execute commands on multiple remote hosts"
 authors = [
     {name = "Chaiwat Suttipongsakul",email = "cwt@bashell.com"}
@@ -20,11 +20,11 @@ speed = [
 ]
 
 [tool.poetry]
-homepage = "https://sr.ht/~cwt/ananta"
-repository = "https://hg.sr.ht/~cwt/ananta"
+homepage = "https://github.com/cwt/ananta"
+repository = "https://github.com/cwt/ananta"
 
 [tool.poetry.urls]
-"GitHub Mirror" = "https://github.com/cwt/ananta"
+"Sourcehut Mirror" = "https://sr.ht/~cwt/ananta/"
 
 [tool.poetry.scripts]
 ananta = "ananta.ananta:run_cli"
