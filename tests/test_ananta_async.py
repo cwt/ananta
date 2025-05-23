@@ -1,5 +1,6 @@
 from ananta.ananta import main
 from ananta.ananta import run_cli
+from importlib.metadata import version
 from unittest.mock import patch, AsyncMock, MagicMock
 import pytest
 import unittest
@@ -62,7 +63,7 @@ async def test_run_cli_version(mock_parse_args, capsys):
     with pytest.raises(SystemExit):
         run_cli()
     captured = capsys.readouterr()
-    assert "Ananta-1.2.0" in captured.out
+    assert f"Ananta-{version('ananta')}" in captured.out
 
 
 @patch("ananta.ananta.execute", new_callable=AsyncMock)
