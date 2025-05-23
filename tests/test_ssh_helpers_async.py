@@ -14,7 +14,7 @@ async def test_retry_connect_success():
             username="user",
             client_keys=["/key"],
             timeout=0.1,
-            max_retries=2
+            max_retries=2,
         )
         assert mock_connect.call_count == 1
         assert isinstance(conn, AsyncMock)
