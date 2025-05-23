@@ -94,7 +94,7 @@ tags = ["ubuntu", "db"]
     - `tags`: Optional list of tags (e.g., `["web", "prod"]`)
 - **Tags**:
   - Tags from `[default]` are *appended* to tags specified in each host section.
-  - For example, if `default.tags = ["common"]` and `host-3.tags = ["arch", "web"]`, `host-2` will have tags `["common", "arch", "web"]`.
+  - For example, if `default.tags = ["common"]` and `host-3.tags = ["arch", "web"]`, `host-3` will have tags `["common", "arch", "web"]`.
   - Use the `-t` option to filter hosts by tags (e.g., `-t common,web` matches hosts with any of these tags).
 - **Note**: TOML parsing requires `tomli` on Python 3.10 (included in Ananta's dependencies) or `tomllib` on Python 3.11 and above.
 
