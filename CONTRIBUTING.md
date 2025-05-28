@@ -132,7 +132,7 @@ We welcome various contributions, including:
 
 ## Code of Conduct
 
-Be respectful and inclusive in all interactions. We follow a standard open-source code of conduct, ensuring a welcoming environment for all contributors.
+Be respectful and inclusive in all interactions. We follow a [simplified open-source code of conduct](CODE_OF_CONDUCT.md), ensuring a welcoming environment for all contributors.
 
 ## Questions?
 
