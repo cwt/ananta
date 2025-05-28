@@ -140,5 +140,5 @@ If you have questions or need help, open an issue on [GitHub](https://github.com
 
 ---
 
-*The MIT License applies to all contributions. See [README.md](https://github.com/cwt/ananta/blob/main/README.md) for details.*
+*The MIT License applies to all contributions. See [README.md](README.md) for details.*
 

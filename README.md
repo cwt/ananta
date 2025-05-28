@@ -169,6 +169,10 @@ $ ananta -t arch hosts.toml sudo pacman -Syu --noconfirm
 
 [![asciicast](https://asciinema.org/a/711116.svg)](https://asciinema.org/a/711116)
 
+## Contributing
+
+We welcome contributions to Ananta! Whether you're fixing bugs, adding features, or improving docs, check out our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
+
 ## License
 
 ```text
