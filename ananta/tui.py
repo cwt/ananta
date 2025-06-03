@@ -20,15 +20,27 @@ from ananta.ssh import establish_ssh_connection, stream_command_output
 
 # --- Color and Palette Configuration ---
 URWID_FG_COLORS = [
-    "dark red", "dark green", "brown", "dark blue",
-    "dark magenta", "dark cyan", "light gray", "yellow",
-    "light red", "light green", "light blue", "light magenta", "light cyan"
+    "dark red",
+    "dark green",
+    "brown",
+    "dark blue",
+    "dark magenta",
+    "dark cyan",
+    "light gray",
+    "yellow",
+    "light red",
+    "light green",
+    "light blue",
+    "light magenta",
+    "light cyan",
 ]
 shuffle(URWID_FG_COLORS)
 COLORS_CYCLE = cycle(URWID_FG_COLORS)
 
 HOST_PALETTE_CONFIG: Dict[str, Tuple[str, str, str]] = {}
-URWID_PALETTE: List[Tuple[str, str, str, str | None, str | None, str | None]] = []
+URWID_PALETTE: List[
+    Tuple[str, str, str, str | None, str | None, str | None]
+] = []
 
 # ANSI SGR codes to Urwid attributes mapping
 ANSI_SGR_PALETTE_MAP = {
@@ -72,13 +84,16 @@ ANSI_SGR_PALETTE_MAP = {
 ANSI_SGR_PATTERN = re.compile(r"\x1b\[([\d;]*)m")
 
 
-def generate_ansi_palette_entries() -> List[Tuple[str, str, str, str | None, str | None, str | None]]:
+def generate_ansi_palette_entries() -> (
+    List[Tuple[str, str, str, str | None, str | None, str | None]]
+):
     """Generate Urwid palette entries for ANSI SGR codes."""
     return [
         (attr_name, fg, bg, style or "", None, None)
         for code, (attr_name, fg, bg, style) in ANSI_SGR_PALETTE_MAP.items()
         if attr_name
     ]
+
 
 URWID_PALETTE.extend(generate_ansi_palette_entries())
 
@@ -123,7 +138,11 @@ def ansi_to_urwid_markup(line: str) -> List[Tuple[str, str] | str]:
     if last_pos < len(line):
         markup.append(_apply_styles(line[last_pos:], active_styles))
 
-    return [part for part in markup if part and (isinstance(part, tuple) or part.strip())]
+    return [
+        part
+        for part in markup
+        if part and (isinstance(part, tuple) or part.strip())
+    ]
 
 
 def _apply_styles(text: str, styles: Set[str]) -> Tuple[str, str] | str:
@@ -134,8 +153,12 @@ def _apply_styles(text: str, styles: Set[str]) -> Tuple[str, str] | str:
     if not styles:
         return text
 
-    fg_code = next((s for s in styles if "30" <= s <= "37" or "90" <= s <= "97"), None)
-    bg_code = next((s for s in styles if "40" <= s <= "47" or "100" <= s <= "107"), None)
+    fg_code = next(
+        (s for s in styles if "30" <= s <= "37" or "90" <= s <= "97"), None
+    )
+    bg_code = next(
+        (s for s in styles if "40" <= s <= "47" or "100" <= s <= "107"), None
+    )
     is_bold = "1" in styles
     is_underline = "4" in styles
 
@@ -177,7 +200,9 @@ def _ensure_host_palette(host_name: str) -> str:
     return attr_name
 
 
-def format_host_prompt(host_name: str, max_name_length: int) -> List[Tuple[str, str] | str]:
+def format_host_prompt(
+    host_name: str, max_name_length: int
+) -> List[Tuple[str, str] | str]:
     """
     Format a host prompt for Urwid display.
 
@@ -195,6 +220,7 @@ def format_host_prompt(host_name: str, max_name_length: int) -> List[Tuple[str, 
 
 class AnantaUrwidTUI:
     """Urwid-based TUI for executing commands on multiple remote hosts via SSH."""
+
     DEFAULT_PALETTE = [
         ("status_ok", "light green", "default"),
         ("status_error", "light red", "default"),
@@ -211,7 +237,7 @@ class AnantaUrwidTUI:
         host_file: str,
         initial_command: str | None,
         host_tags: str | None,
-        default_key: str | None
+        default_key: str | None,
     ):
         """Initialize the TUI with host configuration and UI components."""
         self.host_file = host_file
@@ -227,13 +253,22 @@ class AnantaUrwidTUI:
         self.output_walker = urwid.SimpleFocusListWalker([])
         self.output_box = urwid.ListBox(self.output_walker)
         self.input_field = urwid.Edit(edit_text="")
-        self.input_wrapper = urwid.Columns([
-            ("fixed", 2, urwid.AttrMap(urwid.Text([("input_prompt", "> ")]), "input_prompt")),
-            self.input_field
-        ], dividechars=0)
+        self.input_wrapper = urwid.Columns(
+            [
+                (
+                    "fixed",
+                    2,
+                    urwid.AttrMap(
+                        urwid.Text([("input_prompt", "> ")]), "input_prompt"
+                    ),
+                ),
+                self.input_field,
+            ],
+            dividechars=0,
+        )
         self.main_layout = urwid.Frame(
             body=urwid.AttrMap(self.output_box, "body"),
-            footer=urwid.AttrMap(self.input_wrapper, "body")
+            footer=urwid.AttrMap(self.input_wrapper, "body"),
         )
 
         self.loop: urwid.MainLoop | None = None
@@ -251,21 +286,28 @@ class AnantaUrwidTUI:
             scroll: Whether to scroll to the new line.
         """
         if self.is_exiting and not any(
-            s in str(message).lower() for s in ["exiting", "closed", "cleanup", "shutdown", "processed"]
+            s in str(message).lower()
+            for s in ["exiting", "closed", "cleanup", "shutdown", "processed"]
         ):
             return
 
-        widget = urwid.Text(message if isinstance(message, list) else ansi_to_urwid_markup(message))
+        widget = urwid.Text(
+            message
+            if isinstance(message, list)
+            else ansi_to_urwid_markup(message)
+        )
         self.output_walker.append(widget)
 
         if len(self.output_walker) > 3000:
-            del self.output_walker[0:len(self.output_walker) - 2000]
+            del self.output_walker[0 : len(self.output_walker) - 2000]
 
         if scroll:
             self.output_walker.set_focus(len(self.output_walker) - 1)
 
         if self.loop and self.loop.event_loop and not self.draw_screen_handle:
-            self.draw_screen_handle = self.loop.event_loop.alarm(0, self._request_draw)
+            self.draw_screen_handle = self.loop.event_loop.alarm(
+                0, self._request_draw
+            )
 
     def _request_draw(self, *_args: Any) -> None:
         """Request a screen redraw."""
@@ -273,7 +315,9 @@ class AnantaUrwidTUI:
             self.loop.draw_screen()
         self.draw_screen_handle = None
 
-    async def connect_host(self, host_name: str, ip: str, port: int, user: str, key: str) -> None:
+    async def connect_host(
+        self, host_name: str, ip: str, port: int, user: str, key: str
+    ) -> None:
         """Connect to a single host and update the UI with the status."""
         if self.is_exiting:
             return
@@ -282,26 +326,31 @@ class AnantaUrwidTUI:
         self.add_output(prompt + [("status_neutral", "Connecting...")])
 
         try:
-            conn = await establish_ssh_connection(ip, port, user, key, self.default_key, timeout=10.0)
+            conn = await establish_ssh_connection(
+                ip, port, user, key, self.default_key, timeout=10.0
+            )
             conn.set_keepalive(interval=30, count_max=3)
             self.connections[host_name] = conn
             self.add_output(prompt + [("status_ok", "Connected.")])
         except Exception as e:
             self.connections[host_name] = None
-            self.add_output(prompt + [("status_error", f"Connection failed: {e}")])
+            self.add_output(
+                prompt + [("status_error", f"Connection failed: {e}")]
+            )
 
     async def connect_all_hosts(self) -> None:
         """Connect to all configured hosts concurrently."""
         if self.is_exiting or not self.hosts:
-            self.add_output(ansi_to_urwid_markup(
-                f"[status_neutral]No hosts found in '{self.host_file}'. "
-                "Please check the file path and format.[/status_neutral]"
-            ))
+            self.add_output(
+                ansi_to_urwid_markup(
+                    f"[status_neutral]No hosts found in '{self.host_file}'. "
+                    "Please check the file path and format.[/status_neutral]"
+                )
+            )
             return
 
         tasks = [
-            asyncio.create_task(self.connect_host(*host))
-            for host in self.hosts
+            asyncio.create_task(self.connect_host(*host)) for host in self.hosts
         ]
         for task in tasks:
             self.async_tasks.add(task)
@@ -330,25 +379,38 @@ class AnantaUrwidTUI:
             if self.is_exiting:
                 break
             if conn and not conn.is_closed():
-                task = asyncio.create_task(self.run_command(host_name, conn, command))
+                task = asyncio.create_task(
+                    self.run_command(host_name, conn, command)
+                )
                 self.async_tasks.add(task)
                 task.add_done_callback(self.async_tasks.discard)
             else:
                 prompt = format_host_prompt(host_name, self.max_name_length)
-                self.add_output(prompt + [("status_error", "Not connected, skipping command.")])
+                self.add_output(
+                    prompt
+                    + [("status_error", "Not connected, skipping command.")]
+                )
 
-    async def run_command(self, host_name: str, conn: asyncssh.SSHClientConnection, command: str) -> None:
+    async def run_command(
+        self, host_name: str, conn: asyncssh.SSHClientConnection, command: str
+    ) -> None:
         """Execute a command on a remote host and stream output."""
         if self.is_exiting:
             return
 
         prompt = format_host_prompt(host_name, self.max_name_length)
-        cols = self.loop.screen.get_cols_rows()[0] if self.loop and self.loop.screen else 80
+        cols = (
+            self.loop.screen.get_cols_rows()[0]
+            if self.loop and self.loop.screen
+            else 80
+        )
         remote_width = max(cols - self.max_name_length - 3, 10)
 
         output_queue: asyncio.Queue[str | None] = asyncio.Queue()
         stream_task = asyncio.create_task(
-            stream_command_output(conn, command, remote_width, output_queue, color=True)
+            stream_command_output(
+                conn, command, remote_width, output_queue, color=True
+            )
         )
         self.async_tasks.add(stream_task)
         stream_task.add_done_callback(self.async_tasks.discard)
@@ -373,10 +435,14 @@ class AnantaUrwidTUI:
             await stream_task
         except asyncio.CancelledError:
             if not self.is_exiting:
-                self.add_output(prompt + [("status_neutral", "Command cancelled.")])
+                self.add_output(
+                    prompt + [("status_neutral", "Command cancelled.")]
+                )
         except Exception as e:
             if not self.is_exiting:
-                self.add_output(prompt + [("status_error", f"Error during command: {e}")])
+                self.add_output(
+                    prompt + [("status_error", f"Error during command: {e}")]
+                )
 
     def handle_input(self, key: str) -> bool:
         """
@@ -416,7 +482,11 @@ class AnantaUrwidTUI:
 
     async def shutdown(self) -> None:
         """Perform shutdown tasks and close connections."""
-        self.add_output(ansi_to_urwid_markup("[status_neutral]Exiting... Closing connections...[/status_neutral]"))
+        self.add_output(
+            ansi_to_urwid_markup(
+                "[status_neutral]Exiting... Closing connections...[/status_neutral]"
+            )
+        )
 
         tasks = [
             asyncio.create_task(self._close_connection(conn, host_name))
@@ -426,13 +496,19 @@ class AnantaUrwidTUI:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-        self.add_output(ansi_to_urwid_markup("[status_neutral]Connections closed.[/status_neutral]"))
+        self.add_output(
+            ansi_to_urwid_markup(
+                "[status_neutral]Connections closed.[/status_neutral]"
+            )
+        )
         await self._cleanup_tasks()
 
         if self.loop and self.loop.event_loop:
             self.loop.event_loop.alarm(0, self.exit_loop)
 
-    async def _close_connection(self, conn: asyncssh.SSHClientConnection, host_name: str) -> None:
+    async def _close_connection(
+        self, conn: asyncssh.SSHClientConnection, host_name: str
+    ) -> None:
         """Close a single SSH connection with timeout."""
         conn.close()
         try:
@@ -449,7 +525,9 @@ class AnantaUrwidTUI:
             await asyncio.gather(*self.async_tasks, return_exceptions=True)
             self.async_tasks.clear()
 
-    def get_palette(self) -> List[Tuple[str, str, str, str | None, str | None, str | None]]:
+    def get_palette(
+        self,
+    ) -> List[Tuple[str, str, str, str | None, str | None, str | None]]:
         """Combine all palette entries, ensuring uniqueness."""
         for host in self.hosts:
             _ensure_host_palette(host[0])
@@ -470,7 +548,9 @@ class AnantaUrwidTUI:
         if self.asyncio_loop and not self.asyncio_loop.is_closed():
             asyncio.create_task(self.connect_all_hosts())
         else:
-            print("Warning: Cannot start initial tasks, asyncio loop unavailable.")
+            print(
+                "Warning: Cannot start initial tasks, asyncio loop unavailable."
+            )
 
     def run(self) -> None:
         """Run the TUI application."""
@@ -482,7 +562,7 @@ class AnantaUrwidTUI:
             widget=self.main_layout,
             palette=self.get_palette(),
             event_loop=event_loop,
-            unhandled_input=self.handle_input
+            unhandled_input=self.handle_input,
         )
 
         if self.loop.widget:
@@ -506,6 +586,7 @@ class AnantaUrwidTUI:
         except Exception as e:
             print(f"\nAnanta TUI crashed: {e}")
             import traceback
+
             traceback.print_exc()
         finally:
             if not self.is_exiting:
