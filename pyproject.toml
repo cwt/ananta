@@ -38,6 +38,10 @@ pytest-asyncio = "^0.26.0"
 pytest-cov = "^6.1.0"
 tomli = {version = ">=1.0.0,<3.0.0", optional = true}
 
+[[tool.mypy.overrides]]
+module = "urwid"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 

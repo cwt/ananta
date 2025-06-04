@@ -11,7 +11,7 @@ from .config import get_hosts
 from .output import print_output  # Used by non-TUI mode
 from .ssh import execute  # Used by non-TUI mode
 from types import ModuleType
-from typing import Dict
+from typing import Dict, List
 import argparse
 import asyncio
 import os
@@ -240,6 +240,7 @@ def run_cli() -> None:
             ),
             host_tags=args.host_tags,
             default_key=args.default_key,
+            allow_empty_line=args.allow_empty_line,
         )
         app.run()  # This will block until the TUI exits
         sys.exit(0)  # Exit after TUI finishes
