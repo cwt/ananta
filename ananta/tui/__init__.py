@@ -52,6 +52,7 @@ class AnantaUrwidTUI:
         ("command_echo", "light cyan,bold", "default", None, None, None),
         ("body", "white", "default", None, None, None),
         ("input_prompt", "light blue", "default", None, None, None),
+        ("input_prompt_inactive", "dark gray", "default", None, None, None),
         ("ansi_bold", "bold", "default", None, None, None),
         ("ansi_underline", "underline", "default", None, None, None),
         ("ansi_standout", "standout", "default", None, None, None),
@@ -85,16 +86,30 @@ class AnantaUrwidTUI:
         self.output_walker = urwid.SimpleFocusListWalker([])
         self.output_box = urwid.ListBox(self.output_walker)
         self.input_field = urwid.Edit(edit_text="")
+        self.prompt_widget = urwid.Text(">>> ")
+        self.prompt_attr_map = urwid.AttrMap(self.prompt_widget, "input_prompt")
         self.input_wrapper = urwid.Columns(
             [
-                ("fixed", 4, urwid.AttrMap(urwid.Text(">>> "), "input_prompt")),
+                ("fixed", 4, self.prompt_attr_map),
                 self.input_field,
             ],
             dividechars=0,
         )
-        self.main_layout = urwid.Frame(
-            body=urwid.AttrMap(self.output_box, "body"),
-            footer=urwid.AttrMap(self.input_wrapper, "body"),
+        self.main_pile = urwid.Pile(
+            [
+                ("weight", 1, urwid.AttrMap(self.output_box, "body")),  # Output
+                ("fixed", 1, urwid.SolidFill("─")),  # Line
+                (
+                    "fixed",
+                    1,
+                    urwid.AttrMap(self.input_wrapper, "body"),
+                ),  # Input
+            ]
+        )
+        self.main_layout = urwid.Frame(body=self.main_pile)
+        self.main_pile.focus_position = 2
+        urwid.connect_signal(
+            self.input_field, "change", self.update_prompt_attribute
         )
 
         self.loop: urwid.MainLoop | None = None
@@ -354,10 +369,19 @@ class AnantaUrwidTUI:
             except Exception:
                 pass
 
+    def update_prompt_attribute(self, *args, **kwargs):
+        """Update input prompt color"""
+        if self.main_pile.focus_position == 2:
+            self.prompt_attr_map.set_attr_map({None: "input_prompt"})
+        else:
+            self.prompt_attr_map.set_attr_map({None: "input_prompt_inactive"})
+
     def handle_input(self, key: str) -> bool | None:
         """Handle user input from the keyboard."""
         if self.is_exiting:
             return True
+
+        self.update_prompt_attribute()
 
         if key == "enter":
             self.process_command(self.input_field.edit_text)
@@ -474,10 +498,11 @@ class AnantaUrwidTUI:
             unhandled_input=self.handle_input,
         )
 
-        if self.loop.widget and hasattr(self.loop.widget, "focus_position"):
-            self.loop.widget.focus_position = "footer"
-            if hasattr(self.input_wrapper, "focus_col"):
-                self.input_wrapper.focus_col = 1
+        self.main_pile.focus_position = 2
+        if isinstance(self.input_wrapper, urwid.Columns):
+            self.input_wrapper.focus_position = 1
+        elif hasattr(self.input_wrapper, "focus_col"):
+            self.input_wrapper.focus_col = 1
 
         try:
             self.loop.screen.set_terminal_properties(colors=256)
