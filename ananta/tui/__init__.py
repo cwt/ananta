@@ -196,8 +196,9 @@ class AnantaUrwidTUI:
 
         self.output_walker.append(widget)
 
-        max_lines = 3000
-        trim_lines = 1000
+        _, rows = self.loop.screen.get_cols_rows()
+        max_lines = rows * 5
+        trim_lines = rows
         if len(self.output_walker) > max_lines:
             del self.output_walker[
                 0 : len(self.output_walker) - (max_lines - trim_lines)
