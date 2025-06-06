@@ -119,6 +119,21 @@ class AnantaUrwidTUI:
         self.asyncio_loop: asyncio.AbstractEventLoop | None = None
         self.draw_screen_handle: Any = None
 
+        # --- Show warning for Separate Output mode ---
+        if self.separate_output:
+            self.add_output(
+                [
+                    (
+                        "status_error",
+                        "+-----------------------------------+\n"
+                        "|   Separate Output mode enabled.   |\n"
+                        "|Avoid feeding LARGE amount of data.|\n"
+                        "|       You have been WARNED!       |\n"
+                        "+-----------------------------------+\n",
+                    )
+                ]
+            )
+
     def _populate_host_palette_definitions(self) -> None:
         """Pre-populates host-specific palette entries."""
         for host_name, *_ in self.hosts:
@@ -196,7 +211,9 @@ class AnantaUrwidTUI:
 
         self.output_walker.append(widget)
 
-        _, rows = self.loop.screen.get_cols_rows()
+        rows: int = 24
+        if self.loop and self.loop.screen:
+            _, rows = self.loop.screen.get_cols_rows()
         max_lines = rows * 5
         trim_lines = rows
         if len(self.output_walker) > max_lines:
