@@ -1,6 +1,6 @@
+from ananta.tui.ansi import ansi_to_urwid_markup, _AnsiState
 import pytest
 import urwid
-from ananta.tui.ansi import ansi_to_urwid_markup, _AnsiState
 
 # Mark all tests in this file as TUI tests
 pytestmark = pytest.mark.tui
@@ -45,6 +45,18 @@ def test_ansi_state_reverse():
     assert spec.background == "light red"  # Swapped
 
 
+def test_ansi_state_conceal():
+    """Tests the 'conceal' style which makes foreground same as background."""
+    state = _AnsiState()
+    state.styles.add("conceal")
+    state.fg = "light red"
+    state.bg = "dark blue"
+
+    spec = state.get_attr_spec()
+    assert spec.foreground == "dark blue"  # Swapped to be same as background
+    assert spec.background == "dark blue"
+
+
 def test_ansi_state_reset():
     """Tests resetting the state to defaults."""
     state = _AnsiState()
@@ -75,6 +87,19 @@ def test_ansi_state_reset():
             [
                 (urwid.AttrSpec("underline,default", "default"), "underline"),
                 (urwid.AttrSpec("default", "default"), " normal"),
+            ],
+        ),
+        (
+            "\x1b[3mitalics\x1b[23m",
+            [(urwid.AttrSpec("italics,default", "default"), "italics")],
+        ),
+        (
+            "\x1b[9mstrikethrough\x1b[29m",
+            [
+                (
+                    urwid.AttrSpec("strikethrough,default", "default"),
+                    "strikethrough",
+                )
             ],
         ),
         (
@@ -133,6 +158,10 @@ def test_ansi_state_reset():
                 (urwid.AttrSpec("h208", "default"), "256-color"),
                 (urwid.AttrSpec("default", "default"), " text"),
             ],
+        ),
+        (
+            "\x1b[38;2;10;20;30mtruecolor\x1b[0m",
+            [(urwid.AttrSpec("#0a141e", "default"), "truecolor")],
         ),
         (
             "Final text segment",

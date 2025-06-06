@@ -146,7 +146,9 @@ def _handle_extended_color(
         except ValueError:
             pass
         idx += 1
-    elif color_mode == "2" and idx + 3 < len(params):
+    elif color_mode == "2" and idx + 2 < len(
+        params
+    ):  # <-- This line is corrected
         try:
             r, g, b = params[idx : idx + 3]
             color_val = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
