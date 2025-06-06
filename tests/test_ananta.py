@@ -19,7 +19,11 @@ def test_run_cli_uvloop_linux_success(
     mock_set_policy, mock_parse_args, mock_main_func
 ):
     mock_parse_args.return_value = MagicMock(
-        host_file="hosts.csv", command=["cmd"], version=False, terminal_width=80
+        host_file="hosts.csv",
+        command=["cmd"],
+        version=False,
+        terminal_width=80,
+        tui=False,
     )
     # Simulate uvloop being successfully imported and set in ananta_module.uvloop
     with patch.dict(
@@ -45,7 +49,11 @@ def test_run_cli_uvloop_linux_fail(
     mock_set_policy, mock_parse_args, mock_main_func
 ):
     mock_parse_args.return_value = MagicMock(
-        host_file="hosts.csv", command=["cmd"], version=False, terminal_width=80
+        host_file="hosts.csv",
+        command=["cmd"],
+        version=False,
+        terminal_width=80,
+        tui=False,
     )
     # Simulate uvloop being None (import failed)
     with patch("ananta.ananta.uvloop", None):
@@ -61,7 +69,11 @@ def test_run_cli_winloop_windows_success(
     mock_set_policy, mock_parse_args, mock_main_func
 ):
     mock_parse_args.return_value = MagicMock(
-        host_file="hosts.csv", command=["cmd"], version=False, terminal_width=80
+        host_file="hosts.csv",
+        command=["cmd"],
+        version=False,
+        terminal_width=80,
+        tui=False,
     )
     # Simulate winloop being successfully imported and set in ananta_module.uvloop
     with patch.dict(
@@ -89,6 +101,7 @@ def test_run_cli_terminal_width_from_os_get_terminal_size(
         command=["cmd"],
         version=False,
         terminal_width=None,
+        tui=False,
     )
     mock_get_terminal_size.return_value = os.terminal_size(
         (120, 24)
@@ -115,6 +128,7 @@ def test_run_cli_terminal_width_from_env_columns(
         command=["cmd"],
         version=False,
         terminal_width=None,
+        tui=False,
     )
 
     # os.get_terminal_size() WILL be called to prepare the default for os.environ.get()
@@ -132,7 +146,11 @@ def test_run_cli_terminal_width_from_env_columns(
 @patch("ananta.ananta.argparse.ArgumentParser.parse_args")
 def test_run_cli_terminal_width_from_arg(mock_parse_args, mock_main_func):
     mock_parse_args.return_value = MagicMock(
-        host_file="hosts.csv", command=["cmd"], version=False, terminal_width=90
+        host_file="hosts.csv",
+        command=["cmd"],
+        version=False,
+        terminal_width=90,
+        tui=False,
     )
 
     run_cli()
@@ -152,6 +170,7 @@ def test_run_cli_terminal_width_os_error(
         command=["cmd"],
         version=False,
         terminal_width=None,
+        tui=False,
     )
 
     run_cli()
@@ -172,6 +191,7 @@ def test_run_cli_platform_imports(mock_set_event_loop_policy, capsys, tmp_path):
         allow_empty_line=False,
         allow_cursor_control=False,
         default_key=None,
+        tui=False,
     )
     (tmp_path / "hosts.csv").write_text(
         "host1,1.1.1.1,22,user,#", encoding="utf-8"
