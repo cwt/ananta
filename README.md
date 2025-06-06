@@ -14,6 +14,7 @@ Initially, this project was named Hydra, referencing the many-headed serpent in 
 - Flexible host list configuration in **TOML** or **CSV** format
 - SSH authentication with public key support
 - Lightweight and user-friendly command-line interface
+- Interactive Text User Interface (TUI) for real-time command execution and output viewing
 - Color-coded output for easy host differentiation
 - Option to separate host outputs for clarity
 - Support for cursor control codes for specific layouts (e.g., `fastfetch`, `neofetch`)
@@ -24,7 +25,7 @@ Initially, this project was named Hydra, referencing the many-headed serpent in 
 
 - Python 3.10 or higher
 - `pip` package manager
-- Required dependencies: `asyncssh`, `argparse`, `asyncio`
+- Required dependencies: `asyncssh`, `argparse`, `asyncio`, `urwid` (for TUI mode)
 - Optional: `uvloop` (Unix-based systems) or `winloop` (Windows) for enhanced performance
 - For TOML host files on Python 3.10: `tomli` (automatically installed)
 
@@ -42,7 +43,7 @@ Install Ananta with `uvloop` or `winloop` for *speed* enhancement:
 pip install ananta[speed] --user
 ```
 
-**Note:** Ensure Python 3.10 or higher is installed. For TOML host files, Python 3.10 requires `tomli`, while Python 3.11 and above use the built-in `tomllib`. If you previously used `hydra-ssh`, update to `pip install ananta` to get the latest version.
+**Note:** Ensure Python 3.10 or higher is installed. For TOML host files, Python 3.10 requires `tomli`, while Python 3.11 and above use the built-in `tomllib`. If you previously used `hydra-ssh`, update to `pip install ananta` to get the latest version. The `urwid` library is automatically installed for TUI mode support.
 
 ## Usage
 
@@ -150,6 +151,45 @@ $ ananta -t common,web hosts.toml uptime
 $ ananta -t arch hosts.toml sudo pacman -Syu --noconfirm
 ```
 
+### Text User Interface (TUI) Mode
+
+Ananta provides an interactive Text User Interface (TUI) powered by the `urwid` library, allowing real-time command input and output viewing across multiple remote hosts. The TUI mode is ideal for interactive sessions where you want to monitor command outputs as they stream in.
+
+**Launching TUI Mode:**
+
+Launch the TUI with the `--tui` flag:
+
+```bash
+ananta --tui [hosts file] [initial command]
+```
+
+**Examples:**
+
+```console
+# Launch TUI with a TOML hosts file and no initial command
+$ ananta --tui hosts.toml
+
+# Launch TUI with a CSV hosts file and run 'uptime' initially
+$ ananta --tui hosts.csv uptime
+
+# Launch TUI with tag filtering and an initial command
+$ ananta --tui -t web,db hosts.toml "df -h"
+```
+
+**Using the TUI:**
+
+- **Input Prompt**: At the `>>>` prompt, type commands to execute on all connected hosts.
+- **Output Display**: Outputs from each host are displayed with color-coded host names for clarity.
+- **Navigation**: Use the arrow keys or mouse to scroll through the output.
+- **Exit**: Type `exit` or press `Ctrl+C` or `Ctrl+D` to quit the TUI.
+- **Options**: Supports `-t` (host tags), `-k` (default key), `-s` (separate output), and `-e` (allow empty lines) as in non-TUI mode. Note that `-n` (no-color), `-w` (terminal width), and `-c` (cursor control) are ignored in TUI mode, as the TUI handles these internally.
+
+**Notes:**
+
+- Requires the `urwid` library, automatically installed with `pip install ananta`.
+- The TUI mode streams output in real-time for interleaved display or waits for complete output with `-s` (separate output).
+- Cursor control codes (e.g., for `fastfetch`) are automatically handled to ensure proper rendering.
+
 ### Options
 
 **Single-letter options are case-insensitive.**
@@ -161,7 +201,8 @@ $ ananta -t arch hosts.toml sudo pacman -Syu --noconfirm
 - `-e, --allow-empty-line`: Permit printing of empty lines
 - `-c, --allow-cursor-control`: Enable cursor control codes (e.g., for `fastfetch` or `neofetch`)
 - `-v, --version`: Display the Ananta version
-- `-k, --default-key`: Specify the default SSH private key path
+- `-k, --default-key`: Specify the default SSH private key
+- `--tui`: Launch the Text User Interface (TUI) mode
 
 ### Demo
 
