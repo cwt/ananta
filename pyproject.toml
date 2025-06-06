@@ -44,6 +44,9 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "tui: marks tests as related to the Text User Interface"
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
