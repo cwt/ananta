@@ -1,20 +1,21 @@
 import re
 import urwid
 from typing import List, Tuple
+from dataclasses import dataclass, field
 
 
 _DEFAULT_FG_COLOR = "default"  # Urwid's default color string for foreground
 _DEFAULT_BG_COLOR = "default"  # Urwid's default color string for background
 
 
+@dataclass
 class _AnsiState:
     """Manages the current state of ANSI SGR attributes."""
 
-    def __init__(self):
-        """Initialize the ANSI state with default attributes."""
-        self.fg = _DEFAULT_FG_COLOR
-        self.bg = _DEFAULT_BG_COLOR
-        self.styles = set()
+    """Initialize the ANSI state with default attributes."""
+    fg: str = _DEFAULT_FG_COLOR
+    bg: str = _DEFAULT_BG_COLOR
+    styles: set[str] = field(default_factory=set)
 
     def reset(self):
         """Reset all attributes to default."""
