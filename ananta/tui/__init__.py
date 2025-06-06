@@ -9,7 +9,7 @@ from ..ssh import establish_ssh_connection, stream_command_output
 from .ansi import ansi_to_urwid_markup
 from itertools import cycle
 from random import shuffle
-from typing import Any, Dict, List, Set, Tuple, Optional
+from typing import Any, Dict, List, Set, Tuple
 import asyncio
 import asyncssh
 import re
@@ -133,7 +133,7 @@ class AnantaUrwidTUI:
                     None,
                 )
 
-    def _build_palette(self) -> List[Tuple[Optional[str], ...]]:
+    def _build_palette(self) -> List[Tuple[str | None, ...]]:
         """Build the complete palette for Urwid, including default and host-specific styles."""
         palette = list(self.DEFAULT_PALETTE)
 
@@ -399,9 +399,7 @@ class AnantaUrwidTUI:
         self.is_exiting = True
 
         if self.asyncio_loop and not self.asyncio_loop.is_closed():
-            asyncio.ensure_future(
-                self.perform_shutdown(), loop=self.asyncio_loop
-            )
+            self.asyncio_loop.create_task(self.perform_shutdown())
         else:
             self._direct_exit_loop()
 
@@ -468,9 +466,7 @@ class AnantaUrwidTUI:
     def _initial_setup_tasks(self, *_args: Any) -> None:
         """Perform initial setup tasks after the main loop starts."""
         if self.asyncio_loop and not self.asyncio_loop.is_closed():
-            asyncio.ensure_future(
-                self.connect_all_hosts(), loop=self.asyncio_loop
-            )
+            self.asyncio_loop.create_task(self.connect_all_hosts())
         else:
             self.add_output(
                 [
