@@ -17,7 +17,7 @@ Initially, this project was named Hydra, referencing the many-headed serpent in 
 - Interactive Text User Interface (TUI) for real-time command execution and output viewing
 - Color-coded output for easy host differentiation
 - Option to separate host outputs for clarity
-- Support for cursor control codes for specific layouts (e.g., `fastfetch`, `neofetch`)
+- [non-TUI mode] Support for cursor control codes for specific layouts (e.g., `fastfetch`, `neofetch`)
 
 ## Installation
 
@@ -188,7 +188,7 @@ $ ananta --tui -t web,db hosts.toml "df -h"
 
 - Requires the `urwid` library, automatically installed with `pip install ananta`.
 - The TUI mode streams output in real-time for interleaved display or waits for complete output with `-s` (separate output).
-- Cursor control codes (e.g., for `fastfetch`) are automatically handled to ensure proper rendering.
+- Cursor control codes are stripped to ensure proper rendering in the TUI.
 
 ### Options
 
