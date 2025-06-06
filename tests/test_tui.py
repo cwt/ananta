@@ -72,6 +72,25 @@ def test_tui_initialization(mock_tui):
     assert mock_tui.is_exiting is False
 
 
+def test_tui_initialization_welcome_message():
+    """Test if the TUI welcome message is shown."""
+    # This test does not use the fixture to isolate the check
+    with patch("ananta.tui.get_hosts", return_value=([], 0)):
+        tui = AnantaUrwidTUI(
+            host_file="dummy.csv",
+            initial_command=None,
+            host_tags=None,
+            default_key=None,
+            separate_output=False,
+            allow_empty_line=False,
+        )
+        # The warning is added to the output walker
+        assert tui.output_walker
+        # Check if the first message in the walker is the warning
+        warning_widget = tui.output_walker[0]
+        assert "Welcome to Ananta TUI mode." in str(warning_widget.get_text())
+
+
 def test_tui_initialization_separate_output_warning():
     """Test if the warning for separate output mode is shown."""
     # This test does not use the fixture to isolate the check
@@ -87,8 +106,10 @@ def test_tui_initialization_separate_output_warning():
         # The warning is added to the output walker
         assert tui.output_walker
         # Check if the first message in the walker is the warning
-        warning_widget = tui.output_walker[0]
-        assert "Separate Output mode enabled" in str(warning_widget.get_text())
+        warning_widget = tui.output_walker[1]
+        assert "Separate Output mode [-s] enabled." in str(
+            warning_widget.get_text()
+        )
 
 
 def test_add_output_trimming(mock_tui):

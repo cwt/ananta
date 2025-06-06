@@ -119,17 +119,33 @@ class AnantaUrwidTUI:
         self.asyncio_loop: asyncio.AbstractEventLoop | None = None
         self.draw_screen_handle: Any = None
 
+        # --- Show the TUI welcome message ---
+        self.add_output(
+            [
+                (
+                    "status_ok",
+                    "+------------------------------------------+\n"
+                    "|        Welcome to Ananta TUI mode.       |\n"
+                    "|Press [Up] to focus on the Output window. |\n"
+                    "|Press [PgUp] or [PgDn] to scroll up/down. |\n"
+                    "|Press [Down] to focus on the Input window.|\n"
+                    "|Press [Ctrl-D] or `exit` command to exit. |\n"
+                    "+------------------------------------------+",
+                )
+            ]
+        )
+
         # --- Show warning for Separate Output mode ---
         if self.separate_output:
             self.add_output(
                 [
                     (
                         "status_error",
-                        "+-----------------------------------+\n"
-                        "|   Separate Output mode enabled.   |\n"
-                        "|Avoid feeding LARGE amount of data.|\n"
-                        "|       You have been WARNED!       |\n"
-                        "+-----------------------------------+\n",
+                        "+------------------------------------------+\n"
+                        "|    Separate Output mode [-s] enabled.    |\n"
+                        "|    Avoid feeding LARGE amount of data.   |\n"
+                        "|       !!!!You have been WARNED!!!!       |\n"
+                        "+------------------------------------------+",
                     )
                 ]
             )
