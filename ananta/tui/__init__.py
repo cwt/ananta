@@ -64,25 +64,30 @@ class AnantaUrwidTUI:
         initial_command: str | None,
         host_tags: str | None,
         default_key: str | None,
-        allow_empty_line: bool = False,
+        separate_output: bool,
+        allow_empty_line: bool,
     ):
         """Initialize the Ananta TUI."""
+        # --- SSH, connection, and output setup ---
         self.host_file = host_file
         self.initial_command = initial_command
         self.host_tags = host_tags
         self.default_key = default_key
+        self.separate_output = separate_output
         self.allow_empty_line = allow_empty_line
         self.hosts, self.max_name_length = get_hosts(host_file, host_tags)
         self.connections: Dict[str, asyncssh.SSHClientConnection | None] = {
             host[0]: None for host in self.hosts
         }
-
+        self.output_queues: Dict[str, asyncio.Queue[str | None]] = {
+            host[0]: asyncio.Queue() for host in self.hosts
+        }
+        # --- Urwid setup ---
         self.host_palette_definitions: Dict[
             str, Tuple[str, str, str, None, None, None]
         ] = {}
         self._populate_host_palette_definitions()
         self.current_palette = self._build_palette()
-
         self.output_walker = urwid.SimpleFocusListWalker([])
         self.output_box = urwid.ListBox(self.output_walker)
         self.input_field = urwid.Edit(edit_text="")
@@ -97,13 +102,9 @@ class AnantaUrwidTUI:
         )
         self.main_pile = urwid.Pile(
             [
-                ("weight", 1, urwid.AttrMap(self.output_box, "body")),  # Output
-                ("fixed", 1, urwid.SolidFill("─")),  # Line
-                (
-                    "fixed",
-                    1,
-                    urwid.AttrMap(self.input_wrapper, "body"),
-                ),  # Input
+                ("weight", 1, urwid.AttrMap(self.output_box, "body")),
+                ("fixed", 1, urwid.SolidFill("─")),
+                ("fixed", 1, urwid.AttrMap(self.input_wrapper, "body")),
             ]
         )
         self.main_layout = urwid.Frame(body=self.main_pile)
@@ -111,7 +112,7 @@ class AnantaUrwidTUI:
         urwid.connect_signal(
             self.input_field, "change", self.update_prompt_attribute
         )
-
+        # --- Event loop and async tasks setup ---
         self.loop: urwid.MainLoop | None = None
         self.async_tasks: Set[asyncio.Task[Any]] = set()
         self.is_exiting = False
@@ -232,14 +233,15 @@ class AnantaUrwidTUI:
             conn = await establish_ssh_connection(
                 ip, port, user, key, self.default_key, timeout=10.0
             )
-            conn.set_keepalive(interval=30, count_max=3)
-            self.connections[host_name] = conn
-            self.add_output(prompt + [("status_ok", "Connected.")])
         except Exception as e:
             self.connections[host_name] = None
             self.add_output(
                 prompt + [("status_error", f"Connection failed: {e}")]
             )
+        else:
+            conn.set_keepalive(interval=30, count_max=3)
+            self.connections[host_name] = conn
+            self.add_output(prompt + [("status_ok", "Connected.")])
 
     async def connect_all_hosts(self) -> None:
         """Connect to all hosts defined in the host file."""
@@ -313,7 +315,7 @@ class AnantaUrwidTUI:
             cols = self.loop.screen.get_cols_rows()[0]
         remote_width = max(cols - self.max_name_length - 3, 10)
 
-        output_queue: asyncio.Queue[str | None] = asyncio.Queue()
+        output_queue: asyncio.Queue[str | None] = self.output_queues[host_name]
 
         stream_task = asyncio.create_task(
             stream_command_output(
@@ -324,30 +326,53 @@ class AnantaUrwidTUI:
         stream_task.add_done_callback(self.async_tasks.discard)
 
         try:
-            while not self.is_exiting:
-                try:
-                    line_data = await asyncio.wait_for(
-                        output_queue.get(), timeout=0.1
-                    )
-                except asyncio.TimeoutError:
-                    if stream_task.done():
+            if self.separate_output:
+                collected_output: List[str] = []
+                while not self.is_exiting:
+                    try:
+                        line_data = await asyncio.wait_for(
+                            output_queue.get(), timeout=0.1
+                        )
+                    except asyncio.TimeoutError:
+                        if stream_task.done():
+                            break
+                        continue
+                    if line_data is None:
                         break
-                    continue
+                    collected_output.append(line_data)
+                for line_data in collected_output:
+                    processed_line_markup = ansi_to_urwid_markup(
+                        line_data.rstrip("\r\n")
+                    )
+                    if processed_line_markup:
+                        self.add_output(prompt + processed_line_markup)
+                    elif self.allow_empty_line and line_data.strip() == "":
+                        self.add_output(prompt + [""])
+            else:
+                while not self.is_exiting:
+                    try:
+                        line_data = await asyncio.wait_for(
+                            output_queue.get(), timeout=0.1
+                        )
+                    except asyncio.TimeoutError:
+                        if stream_task.done():
+                            break
+                        continue
 
-                if line_data is None:
-                    break
+                    if line_data is None:
+                        break
 
-                processed_line_markup = ansi_to_urwid_markup(
-                    line_data.rstrip("\r\n")
-                )
-                if processed_line_markup:
-                    self.add_output(prompt + processed_line_markup)
-                elif (
-                    self.allow_empty_line
-                    and line_data.strip() == ""
-                    and not processed_line_markup
-                ):
-                    self.add_output(prompt + [""])
+                    processed_line_markup = ansi_to_urwid_markup(
+                        line_data.rstrip("\r\n")
+                    )
+                    if processed_line_markup:
+                        self.add_output(prompt + processed_line_markup)
+                    elif (
+                        self.allow_empty_line
+                        and line_data.strip() == ""
+                        and not processed_line_markup
+                    ):
+                        self.add_output(prompt + [""])
 
         except Exception as e:
             if not self.is_exiting:

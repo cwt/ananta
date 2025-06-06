@@ -240,6 +240,7 @@ def run_cli() -> None:
             ),
             host_tags=args.host_tags,
             default_key=args.default_key,
+            separate_output=args.separate_output,
             allow_empty_line=args.allow_empty_line,
         )
         app.run()  # This will block until the TUI exits
