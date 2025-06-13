@@ -186,15 +186,17 @@ async def test_retry_connect_key_exchange_failure_then_fails_again():
         )
         assert mock_connect.call_count == 2  # Initial attempt + 1 retry
 
+        # fmt: off
         # Check algorithm options were changed
         # First call uses specific algorithms
-        first_call_args, first_call_kwargs = mock_connect.call_args_list[0]
+        first_call_args, first_call_kwargs = mock_connect.call_args_list[0]  # noqa
         assert "aes128-gcm@openssh.com" in first_call_kwargs.get(
             "encryption_algs", []
         )
 
         # Second call should have empty algorithm options (to use all available)
-        second_call_args, second_call_kwargs = mock_connect.call_args_list[1]
+        second_call_args, second_call_kwargs = mock_connect.call_args_list[1]  # noqa
+        # fmt: on
         assert (
             "encryption_algs" not in second_call_kwargs
         )  # or second_call_kwargs.get("encryption_algs") is None

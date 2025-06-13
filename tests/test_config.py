@@ -403,7 +403,7 @@ invalid = "something"
 """
     p = tmp_path / "hosts.toml"
     p.write_text(toml_content, encoding="utf-8")
-    hosts, max_len = get_hosts(str(p), None)
+    hosts, max_len = get_hosts(str(p), None)  # noqa
     assert len(hosts) == 1
     assert hosts[0][0] == "host-1"
     captured = capsys.readouterr()
@@ -420,7 +420,7 @@ tags = "not-a-list"
 """
     p = tmp_path / "hosts.toml"
     p.write_text(toml_content, encoding="utf-8")
-    hosts, max_len = get_hosts(str(p), None)
+    hosts, max_len = get_hosts(str(p), None)  # noqa
     assert len(hosts) == 1  # Host still included, tags treated as empty
     captured = capsys.readouterr()
     assert "invalid 'tags' (must be a list of strings)" in captured.out
@@ -434,7 +434,7 @@ host-2,10.0.0.2  # Incomplete row
 """
     p = tmp_path / "hosts.csv"
     p.write_text(csv_content, encoding="utf-8")
-    hosts, max_len = get_hosts(str(p), None)
+    hosts, max_len = get_hosts(str(p), None)  # noqa
     assert len(hosts) == 1
     assert hosts[0][0] == "host-1"
     captured = capsys.readouterr()

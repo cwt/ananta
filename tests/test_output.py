@@ -3,7 +3,7 @@ from ananta.output import (
     get_prompt,
     get_end_marker,
     adjust_cursor_with_prompt,
-    _get_host_color,  # Import for potential direct testing if needed
+    _get_host_color,  # noqa -- import for potential direct testing if needed
     RED,
     GREEN,
     YELLOW,

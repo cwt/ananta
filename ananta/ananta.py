@@ -222,7 +222,7 @@ def run_cli() -> None:
 
     if args.tui:
         try:
-            import urwid  # Check if urwid is installed
+            import urwid  # noqa -- check if urwid is installed
         except ImportError:
             print(
                 "Error: 'urwid' library is required for TUI mode but is not installed."

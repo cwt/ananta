@@ -110,7 +110,7 @@ def test_run_cli_terminal_width_from_os_get_terminal_size(
     run_cli()
 
     # Check that main was called with local_display_width = 120
-    args, kwargs = mock_main_func.call_args
+    args, kwargs = mock_main_func.call_args  # noqa
     assert (
         args[2] == 120
     )  # local_display_width is the 3rd positional arg to main
@@ -137,7 +137,7 @@ def test_run_cli_terminal_width_from_env_columns(
 
     run_cli()
 
-    args_call, kwargs_call = mock_main_func.call_args
+    args_call, kwargs_call = mock_main_func.call_args  # noqa
     # The crucial part: local_display_width should be 100 (from COLUMNS), not 50 (from mocked get_terminal_size)
     assert args_call[2] == 100
 
@@ -154,7 +154,7 @@ def test_run_cli_terminal_width_from_arg(mock_parse_args, mock_main_func):
     )
 
     run_cli()
-    args, kwargs = mock_main_func.call_args
+    args, kwargs = mock_main_func.call_args  # noqa
     assert args[2] == 90  # local_display_width from args.terminal_width
 
 
@@ -174,7 +174,7 @@ def test_run_cli_terminal_width_os_error(
     )
 
     run_cli()
-    args, kwargs = mock_main_func.call_args
+    args, kwargs = mock_main_func.call_args  # noqa
     assert args[2] == 80  # Default width on OSError
 
 
