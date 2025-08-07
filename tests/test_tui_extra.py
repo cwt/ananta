@@ -142,7 +142,7 @@ def test_add_output_when_exiting_with_keywords(mock_tui):
 
 
 @patch("ananta.tui.urwid.AsyncioEventLoop")
-@patch("ananta.tui.urwid.MainLoop")
+@patch("ananta.tui.AnantaMainLoop")
 def test_run_method_exceptions(mock_main_loop, mock_event_loop, mock_tui):
     """Test exception handling in the main run method."""
     mock_loop_instance = mock_main_loop.return_value

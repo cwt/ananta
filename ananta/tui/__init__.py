@@ -42,6 +42,15 @@ def format_host_prompt(
     return [(attr_name, f"[{padded_host}] ")]
 
 
+class AnantaMainLoop(urwid.MainLoop):
+    def entering_idle(self) -> None:
+        """
+        Override the base method to prevent automatic screen redraws on idle.
+        This helps avoid `BlockingIOError` by giving us manual control over the redraw cycle.
+        """
+        pass
+
+
 class AnantaUrwidTUI:
     """Ananta Text User Interface using Urwid."""
 
@@ -546,7 +555,7 @@ class AnantaUrwidTUI:
 
         urwid_event_loop = urwid.AsyncioEventLoop(loop=self.asyncio_loop)
 
-        self.loop = urwid.MainLoop(
+        self.loop = AnantaMainLoop(
             widget=self.main_layout,
             palette=self.current_palette,  # Use the pre-built palette
             event_loop=urwid_event_loop,
