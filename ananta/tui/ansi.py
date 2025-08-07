@@ -134,31 +134,34 @@ def _handle_extended_color(
         return idx
     color_mode = params[idx]
     idx += 1
-    if color_mode == "5" and idx < len(params):
-        color_id = params[idx]
-        try:
-            int(color_id)
-            color_val = f"h{color_id}"
-            if is_fg:
-                state.fg = color_val
-            else:
-                state.bg = color_val
-        except ValueError:
-            pass
-        idx += 1
-    elif color_mode == "2" and idx + 2 < len(
-        params
-    ):  # <-- This line is corrected
-        try:
-            r, g, b = params[idx : idx + 3]
-            color_val = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
-            if is_fg:
-                state.fg = color_val
-            else:
-                state.bg = color_val
-        except ValueError:
-            pass
-        idx += 3
+    if color_mode == "5":
+        if idx < len(params):
+            color_id = params[idx]
+            try:
+                int(color_id)
+                color_val = f"h{color_id}"
+                if is_fg:
+                    state.fg = color_val
+                else:
+                    state.bg = color_val
+            except ValueError:
+                pass
+            idx += 1
+    elif color_mode == "2":
+        if idx + 2 < len(params):
+            try:
+                r, g, b = params[idx : idx + 3]
+                color_val = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
+                if is_fg:
+                    state.fg = color_val
+                else:
+                    state.bg = color_val
+            except ValueError:
+                pass
+            idx += 3
+        else:
+            # Malformed sequence, consume rest of params to avoid misinterpretation.
+            return len(params)
     return idx
 
 
