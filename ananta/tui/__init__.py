@@ -117,7 +117,8 @@ class AnantaUrwidTUI:
         self.async_tasks: Set[asyncio.Task[Any]] = set()
         self.is_exiting = False
         self.asyncio_loop: asyncio.AbstractEventLoop | None = None
-        self.draw_screen_handle: Any = None
+        self.screen_dirty = False
+        self.redraw_task: asyncio.Task[Any] | None = None
 
         # --- Show the TUI welcome message ---
         self.add_output(
@@ -240,16 +241,16 @@ class AnantaUrwidTUI:
         if scroll:
             self.output_walker.set_focus(len(self.output_walker) - 1)
 
-        if self.loop and self.loop.event_loop and not self.draw_screen_handle:
-            self.draw_screen_handle = self.loop.event_loop.alarm(
-                0, self._request_draw
-            )
+        self.screen_dirty = True
 
-    def _request_draw(self, *_args: Any) -> None:
-        """Request a redraw of the screen."""
-        if self.loop:
-            self.loop.draw_screen()
-        self.draw_screen_handle = None
+    async def _periodic_redraw(self) -> None:
+        """Periodically redraw the screen if it's dirty."""
+        while not self.is_exiting:
+            if self.screen_dirty:
+                self.screen_dirty = False
+                if self.loop:
+                    self.loop.draw_screen()
+            await asyncio.sleep(0.05)  # Refresh at ~20Hz
 
     async def connect_host(
         self, host_name: str, ip: str, port: int, user: str, key: str
@@ -565,6 +566,12 @@ class AnantaUrwidTUI:
             pass
 
         self.loop.event_loop.alarm(0, self._initial_setup_tasks)
+
+        # Start the periodic redraw task
+        if self.asyncio_loop:
+            self.redraw_task = self.asyncio_loop.create_task(self._periodic_redraw())
+            self.async_tasks.add(self.redraw_task)
+            self.redraw_task.add_done_callback(self.async_tasks.discard)
 
         try:
             self.loop.run()
