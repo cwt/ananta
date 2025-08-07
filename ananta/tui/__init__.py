@@ -443,6 +443,10 @@ class AnantaUrwidTUI:
             self.prompt_attr_map.set_attr_map({None: "input_prompt"})
         else:
             self.prompt_attr_map.set_attr_map({None: "input_prompt_inactive"})
+        if self.loop and self.loop.event_loop and not self.draw_screen_handle:
+            self.draw_screen_handle = self.loop.event_loop.alarm(
+                0, self._request_draw
+            )
 
     def handle_input(self, key: str) -> bool | None:
         """Handle user input from the keyboard."""
