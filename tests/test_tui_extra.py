@@ -141,41 +141,29 @@ def test_add_output_when_exiting_with_keywords(mock_tui):
     mock_tui.output_walker.append.assert_called_once()
 
 
-@pytest.mark.asyncio
 @patch("ananta.tui.urwid.AsyncioEventLoop")
 @patch("ananta.tui.urwid.MainLoop")
-async def test_run_method_keyboard_interrupt(mock_main_loop, mock_event_loop, mock_tui):
-    """Test KeyboardInterrupt handling in the main run method."""
+def test_run_method_exceptions(mock_main_loop, mock_event_loop, mock_tui):
+    """Test exception handling in the main run method."""
     mock_loop_instance = mock_main_loop.return_value
+
     mock_loop_instance.run.side_effect = KeyboardInterrupt
     mock_tui.initiate_exit = MagicMock()
 
-    loop = asyncio.get_running_loop()
-    with patch.object(loop, "close", MagicMock()):
-        with patch("builtins.print") as mock_print:
-            mock_tui.run()
-            mock_print.assert_any_call(
-                "\nAnanta TUI interrupted by user (KeyboardInterrupt)."
-            )
-            mock_tui.initiate_exit.assert_called_once()
+    with patch("builtins.print") as mock_print:
+        mock_tui.run()
+        mock_print.assert_any_call(
+            "\nAnanta TUI interrupted by user (KeyboardInterrupt)."
+        )
+        mock_tui.initiate_exit.assert_called_once()
 
-
-@pytest.mark.asyncio
-@patch("ananta.tui.urwid.AsyncioEventLoop")
-@patch("ananta.tui.urwid.MainLoop")
-async def test_run_method_generic_exception(mock_main_loop, mock_event_loop, mock_tui):
-    """Test generic exception handling in the main run method."""
-    mock_loop_instance = mock_main_loop.return_value
     mock_loop_instance.run.side_effect = ValueError("A test error")
-
-    loop = asyncio.get_running_loop()
-    with patch.object(loop, "close", MagicMock()):
-        with (
-            patch("builtins.print") as mock_print,
-            patch("traceback.print_exc") as mock_traceback,
-        ):
-            mock_tui.run()
-            mock_print.assert_any_call(
-                "\nAnanta TUI encountered an unexpected error: A test error"
-            )
-            mock_traceback.assert_called_once()
+    with (
+        patch("builtins.print") as mock_print,
+        patch("traceback.print_exc") as mock_traceback,
+    ):
+        mock_tui.run()
+        mock_print.assert_any_call(
+            "\nAnanta TUI encountered an unexpected error: A test error"
+        )
+        mock_traceback.assert_called_once()
