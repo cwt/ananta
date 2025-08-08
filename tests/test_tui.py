@@ -118,7 +118,7 @@ def test_add_output_trimming(mock_tui):
     """Test that the output walker is trimmed when it gets too long."""
     # Configure screen size to calculate max_lines
     mock_tui.loop.screen.get_cols_rows.return_value = (80, 20)  # 20 rows
-    max_lines = 20 * 5  # rows * 5 -> 100
+    max_lines = 20 * 10  # rows * 10 -> 200
     trim_lines = 20  # rows
 
     current_length = max_lines + 1

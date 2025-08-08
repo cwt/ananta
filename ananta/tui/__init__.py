@@ -17,6 +17,75 @@ import sys
 import urwid
 
 
+class ListBoxWithScrollBar(urwid.WidgetWrap):
+    """A ListBox with a visual scrollbar."""
+
+    def __init__(self, walker: urwid.SimpleFocusListWalker):
+        self._walker = walker
+        self._list_box = urwid.ListBox(self._walker)
+        self._scrollbar = urwid.Text("", align="left")
+        self._wrapped_widget = urwid.Columns(
+            [
+                (self._list_box),
+                ("fixed", 1, urwid.AttrMap(self._scrollbar, "body")),
+            ],
+            box_columns=[0],
+        )
+        super().__init__(self._wrapped_widget)
+
+    def render(
+        self, size: Tuple[int, int], focus: bool = False
+    ) -> urwid.Canvas:
+        """Render the widget and update the scrollbar."""
+        self._update_scrollbar(size)
+        return super().render(size, focus)
+
+    def _update_scrollbar(self, size: Tuple[int, int]) -> None:
+        """Update the scrollbar's appearance based on the list box's state."""
+        max_height = size[1]
+        if max_height <= 0 or not self._walker:
+            self._scrollbar.set_text("")
+            return
+
+        content_length = len(self._walker)
+        if content_length <= max_height:
+            self._scrollbar.set_text("")  # No scrollbar needed
+            return
+
+        focus_pos = self._walker.focus
+        if not 0 <= focus_pos < content_length:
+            focus_pos = content_length - 1
+
+        if content_length > 1:
+            scroll_ratio = focus_pos / (content_length - 1)
+        else:
+            scroll_ratio = 0
+
+        handle_size = max(1, round(max_height * (max_height / content_length)))
+        handle_size = min(max_height, handle_size)
+
+        scrollable_space = max_height - handle_size
+        handle_top = round(scroll_ratio * scrollable_space)
+
+        bar_chars = []
+        for i in range(max_height):
+            if handle_top <= i < handle_top + handle_size:
+                bar_chars.append("█")
+            else:
+                bar_chars.append("░")
+
+        self._scrollbar.set_text("\n".join(bar_chars))
+
+    def keypress(self, size: Tuple[int, int], key: str) -> str | None:
+        """Pass keypresses to the list box."""
+        return self._list_box.keypress(size, key)
+
+    @property
+    def body(self) -> urwid.SimpleFocusListWalker:
+        """Provide access to the walker for external manipulation."""
+        return self._walker
+
+
 # --- Setup colors for hosts ---
 URWID_FG_COLORS = [
     "yellow",
@@ -124,7 +193,7 @@ class AnantaUrwidTUI:
         self._populate_host_palette_definitions()
         self.current_palette = self._build_palette()
         self.output_walker = urwid.SimpleFocusListWalker([])
-        self.output_box = urwid.ListBox(self.output_walker)
+        self.output_box = ListBoxWithScrollBar(self.output_walker)
         self.input_field = urwid.Edit(edit_text="")
         self.prompt_widget = urwid.Text(">>> ")
         self.prompt_attr_map = urwid.AttrMap(self.prompt_widget, "input_prompt")
@@ -265,7 +334,7 @@ class AnantaUrwidTUI:
         rows: int = 24
         if self.loop and self.loop.screen:
             _, rows = self.loop.screen.get_cols_rows()
-        max_lines = rows * 5
+        max_lines = rows * 10
         trim_lines = rows
         if len(self.output_walker) > max_lines:
             del self.output_walker[
@@ -394,7 +463,9 @@ class AnantaUrwidTUI:
         cols = 80
         if self.loop and self.loop.screen:
             cols = self.loop.screen.get_cols_rows()[0]
-        remote_width = max(cols - self.max_name_length - 3, 10)
+        remote_width = (
+            max(cols - self.max_name_length - 3, 10) - 1
+        )  # Decrease 1 column for the scroollbar.
 
         output_queue: asyncio.Queue[str | None] = self.output_queues[host_name]
 
@@ -628,12 +699,6 @@ class AnantaUrwidTUI:
             print("\nAnanta TUI interrupted by user (KeyboardInterrupt).")
             if not self.is_exiting:
                 self.initiate_exit()
-            if (
-                self.shutdown_task
-                and self.asyncio_loop
-                and not self.asyncio_loop.is_closed()
-            ):
-                self.asyncio_loop.run_until_complete(self.shutdown_task)
 
         except Exception as e:
             print(f"\nAnanta TUI encountered an unexpected error: {e}")
