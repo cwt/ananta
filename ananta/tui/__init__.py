@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Set, Tuple
 import asyncio
 import asyncssh
 import re
+import sys
 import urwid
 
 
@@ -49,6 +50,34 @@ class AnantaMainLoop(urwid.MainLoop):
         This helps avoid `BlockingIOError` by giving us manual control over the redraw cycle.
         """
         pass
+
+
+class AnantaMainLoop(urwid.MainLoop):
+    def entering_idle(self) -> None:
+        """
+        Override the base method to prevent automatic screen redraws on idle.
+        This helps avoid `BlockingIOError` by giving us manual control over the redraw cycle.
+        """
+        pass
+
+
+class RefreshingPile(urwid.Pile):
+    """A Pile that forces a redraw after any keypress is handled."""
+
+    def __init__(self, widget_list: List[Any], tui: "AnantaUrwidTUI", **kwargs: Any):
+        self._tui = tui
+        super().__init__(widget_list, **kwargs)
+
+    def keypress(self, size: Tuple[int, int], key: str) -> str | None:
+        """Handle keypress and then request a redraw."""
+        result = super().keypress(size, key)
+        # After any keypress, handled or not by a child, request a redraw.
+        # This is necessary because the main loop's idle handler is disabled.
+        if self._tui.loop and self._tui.loop.event_loop and not self._tui.draw_screen_handle:
+            self._tui.draw_screen_handle = self._tui.loop.event_loop.alarm(
+                0, self._tui._request_draw
+            )
+        return result
 
 
 class AnantaUrwidTUI:
@@ -109,13 +138,12 @@ class AnantaUrwidTUI:
             ],
             dividechars=0,
         )
-        self.main_pile = urwid.Pile(
-            [
-                ("weight", 1, urwid.AttrMap(self.output_box, "body")),
-                ("fixed", 1, urwid.SolidFill("─")),
-                ("fixed", 1, urwid.AttrMap(self.input_wrapper, "body")),
-            ]
-        )
+        widgets = [
+            ("weight", 1, urwid.AttrMap(self.output_box, "body")),
+            ("fixed", 1, urwid.SolidFill("─")),
+            ("fixed", 1, urwid.AttrMap(self.input_wrapper, "body")),
+        ]
+        self.main_pile = RefreshingPile(widgets, tui=self, focus_item=2)
         self.main_layout = urwid.Frame(body=self.main_pile)
         self.main_pile.focus_position = 2
         urwid.connect_signal(
@@ -202,7 +230,8 @@ class AnantaUrwidTUI:
         return unique_palette
 
     def add_output(
-        self, message_parts: List[Any] | str, scroll: bool = True
+        self,
+        message_parts: List[Any] | str, scroll: bool = True
     ) -> None:
         """Add output to the display."""
         if self.is_exiting and not any(
@@ -266,7 +295,12 @@ class AnantaUrwidTUI:
             self.draw_screen_handle = None
 
     async def connect_host(
-        self, host_name: str, ip: str, port: int, user: str, key: str
+        self,
+        host_name: str,
+        ip: str,
+        port: int,
+        user: str,
+        key: str,
     ) -> None:
         """Establish an SSH connection to a single host."""
         if self.is_exiting:
@@ -350,7 +384,10 @@ class AnantaUrwidTUI:
                 )
 
     async def run_command_on_host(
-        self, host_name: str, conn: asyncssh.SSHClientConnection, command: str
+        self,
+        host_name: str,
+        conn: asyncssh.SSHClientConnection,
+        command: str,
     ) -> None:
         """Run a command on a specific host and stream the output."""
         if self.is_exiting:  # If exiting, do not run commands
@@ -533,7 +570,8 @@ class AnantaUrwidTUI:
             self.loop.event_loop.alarm(0, self._direct_exit_loop)
 
     async def _close_single_connection(
-        self, conn: asyncssh.SSHClientConnection
+        self,
+        conn: asyncssh.SSHClientConnection,
     ) -> None:
         """Close a single SSH connection gracefully."""
         try:
@@ -625,3 +663,4 @@ class AnantaUrwidTUI:
                     ):  # Check again before closing
                         self.asyncio_loop.close()
             print("Ananta TUI has finished.")
+

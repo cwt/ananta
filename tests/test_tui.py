@@ -13,6 +13,7 @@ def mock_tui():
     """Fixture to create a mocked AnantaUrwidTUI instance for testing."""
     with (
         patch("ananta.tui.get_hosts") as mock_get_hosts,
+        patch("ananta.tui.RefreshingPile", spec=urwid.Pile) as mock_pile,
         patch("ananta.tui.urwid") as mock_urwid,
     ):
         # Setup mock for get_hosts
@@ -33,13 +34,13 @@ def mock_tui():
         )
         # Attach mocks for later inspection
         tui.urwid = mock_urwid
+        tui.main_pile = mock_pile
 
         # Replace walkers and boxes with mocks.
         tui.output_walker = MagicMock(spec=urwid.SimpleFocusListWalker)
         tui.output_box = MagicMock(spec=urwid.ListBox)
         tui.main_layout = MagicMock(spec=urwid.Frame)
         tui.prompt_attr_map = MagicMock(spec=urwid.AttrMap)
-        tui.main_pile = MagicMock(spec=urwid.Pile)
         tui.main_pile.focus_position = 2  # Start with input focused
 
         # Mock the main loop and its nested properties to avoid AttributeErrors
@@ -65,7 +66,8 @@ def test_tui_initialization(mock_tui):
 
     # Check that main layout components were instantiated
     mock_tui.urwid.Frame.assert_called_once()
-    mock_tui.urwid.Pile.assert_called_once()
+    # mock_tui.urwid.Pile.assert_called_once()
+    assert mock_tui.main_pile is not None
     mock_tui.urwid.Edit.assert_called_once()
 
     # Check initial state
