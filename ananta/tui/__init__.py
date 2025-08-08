@@ -127,6 +127,7 @@ class AnantaUrwidTUI:
         self.is_exiting = False
         self.asyncio_loop: asyncio.AbstractEventLoop | None = None
         self.draw_screen_handle: Any = None
+        self.shutdown_task: asyncio.Task[None] | None = None
 
         # --- Show the TUI welcome message ---
         self.add_output(
@@ -256,9 +257,13 @@ class AnantaUrwidTUI:
 
     def _request_draw(self, *_args: Any) -> None:
         """Request a redraw of the screen."""
-        if self.loop:
-            self.loop.draw_screen()
-        self.draw_screen_handle = None
+        try:
+            if self.loop:
+                self.loop.draw_screen()
+        except BlockingIOError:
+            pass  # Ignore if the screen is busy
+        finally:
+            self.draw_screen_handle = None
 
     async def connect_host(
         self, host_name: str, ip: str, port: int, user: str, key: str
@@ -471,7 +476,9 @@ class AnantaUrwidTUI:
         self.is_exiting = True
 
         if self.asyncio_loop and not self.asyncio_loop.is_closed():
-            self.asyncio_loop.create_task(self.perform_shutdown())
+            self.shutdown_task = self.asyncio_loop.create_task(
+                self.perform_shutdown()
+            )
         else:
             self._direct_exit_loop()
 
@@ -587,14 +594,13 @@ class AnantaUrwidTUI:
             print("\nAnanta TUI interrupted by user (KeyboardInterrupt).")
             if not self.is_exiting:
                 self.initiate_exit()
-                if (
-                    self.asyncio_loop
-                    and not self.asyncio_loop.is_closed()
-                    and self.is_exiting
-                ):
-                    self.asyncio_loop.run_until_complete(
-                        self.asyncio_loop.shutdown_asyncgens()
-                    )
+            if (
+                self.shutdown_task
+                and self.asyncio_loop
+                and not self.asyncio_loop.is_closed()
+            ):
+                self.asyncio_loop.run_until_complete(self.shutdown_task)
+
         except Exception as e:
             print(f"\nAnanta TUI encountered an unexpected error: {e}")
             import traceback
