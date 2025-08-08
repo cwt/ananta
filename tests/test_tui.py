@@ -14,6 +14,9 @@ def mock_tui():
     with (
         patch("ananta.tui.get_hosts") as mock_get_hosts,
         patch("ananta.tui.RefreshingPile", spec=urwid.Pile) as mock_pile,
+        patch(
+            "ananta.tui.ListBoxWithScrollBar", spec=urwid.Widget
+        ) as mock_list_box,
         patch("ananta.tui.urwid") as mock_urwid,
     ):
         # Setup mock for get_hosts
@@ -35,10 +38,10 @@ def mock_tui():
         # Attach mocks for later inspection
         tui.urwid = mock_urwid
         tui.main_pile = mock_pile
+        tui.output_box = mock_list_box
 
         # Replace walkers and boxes with mocks.
         tui.output_walker = MagicMock(spec=urwid.SimpleFocusListWalker)
-        tui.output_box = MagicMock(spec=urwid.ListBox)
         tui.main_layout = MagicMock(spec=urwid.Frame)
         tui.prompt_attr_map = MagicMock(spec=urwid.AttrMap)
         tui.main_pile.focus_position = 2  # Start with input focused
