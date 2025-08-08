@@ -52,19 +52,12 @@ class AnantaMainLoop(urwid.MainLoop):
         pass
 
 
-class AnantaMainLoop(urwid.MainLoop):
-    def entering_idle(self) -> None:
-        """
-        Override the base method to prevent automatic screen redraws on idle.
-        This helps avoid `BlockingIOError` by giving us manual control over the redraw cycle.
-        """
-        pass
-
-
 class RefreshingPile(urwid.Pile):
     """A Pile that forces a redraw after any keypress is handled."""
 
-    def __init__(self, widget_list: List[Any], tui: "AnantaUrwidTUI", **kwargs: Any):
+    def __init__(
+        self, widget_list: List[Any], tui: "AnantaUrwidTUI", **kwargs: Any
+    ):
         self._tui = tui
         super().__init__(widget_list, **kwargs)
 
@@ -73,7 +66,11 @@ class RefreshingPile(urwid.Pile):
         result = super().keypress(size, key)
         # After any keypress, handled or not by a child, request a redraw.
         # This is necessary because the main loop's idle handler is disabled.
-        if self._tui.loop and self._tui.loop.event_loop and not self._tui.draw_screen_handle:
+        if (
+            self._tui.loop
+            and self._tui.loop.event_loop
+            and not self._tui.draw_screen_handle
+        ):
             self._tui.draw_screen_handle = self._tui.loop.event_loop.alarm(
                 0, self._tui._request_draw
             )
@@ -230,8 +227,7 @@ class AnantaUrwidTUI:
         return unique_palette
 
     def add_output(
-        self,
-        message_parts: List[Any] | str, scroll: bool = True
+        self, message_parts: List[Any] | str, scroll: bool = True
     ) -> None:
         """Add output to the display."""
         if self.is_exiting and not any(
@@ -663,4 +659,3 @@ class AnantaUrwidTUI:
                     ):  # Check again before closing
                         self.asyncio_loop.close()
             print("Ananta TUI has finished.")
-
