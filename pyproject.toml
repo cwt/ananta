@@ -17,7 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 speed = [
     "uvloop (>=0.21.0,<0.22.0) ; sys_platform != \"win32\"",
-    "winloop (>=0.1.8,<0.2.0) ; sys_platform == \"win32\""
+    "winloop (>=0.1.8,<0.3.0) ; sys_platform == \"win32\""
 ]
 
 [tool.poetry]
