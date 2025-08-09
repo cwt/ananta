@@ -101,7 +101,7 @@ def _strip_ansi_control_sequences(text: str) -> str:
     text = _CSI_CONTROL_SEQUENCES.sub(csi_stripper, text)
 
     if "\r" in text:
-        if not text.endswith("\r"):
+        if not text.endswith("\r") and not text.endswith("\r\n"):
             text = text.split("\r")[-1]
 
     return text
