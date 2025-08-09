@@ -78,7 +78,28 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
 
     def keypress(self, size: Tuple[int, int], key: str) -> str | None:
         """Pass keypresses to the list box."""
+        if key == "mouse press":
+            return key
         return self._list_box.keypress(size, key)
+
+    def mouse_event(
+        self,
+        size: Tuple[int, int],
+        event: str,
+        button: int,
+        col: int,
+        row: int,
+        focus: bool,
+    ) -> bool | None:
+        """Handle mouse events, specifically for scrolling."""
+        if event == "mouse press":
+            if button == 4:  # Scroll up
+                self._list_box.keypress(size, "page up")
+                return True
+            if button == 5:  # Scroll down
+                self._list_box.keypress(size, "page down")
+                return True
+        return self._list_box.mouse_event(size, event, button, col, row, focus)
 
     @property
     def body(self) -> urwid.SimpleFocusListWalker:
@@ -686,6 +707,7 @@ class AnantaUrwidTUI:
 
         try:
             self.loop.screen.set_terminal_properties(colors=256)
+            self.loop.screen.set_mouse_tracking(True)
         except Exception:
             pass
 
