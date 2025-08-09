@@ -45,7 +45,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 markers = [
-    "tui: marks tests as related to the Text User Interface"
+    "tui: marks tests as related to the Text User Interface",
+    "config: marks tests as related to configuration"
 ]
 
 [build-system]
