@@ -128,7 +128,7 @@ async def execute_command(
     except asyncssh.Error as error:
         return f"Error executing command: {error}"
     finally:
-        conn.close()
+        await conn.close()
 
 
 async def stream_command_output(
@@ -139,30 +139,35 @@ async def stream_command_output(
     color: bool,
 ) -> None:
     """Stream the output of the command from the remote host to the output queue."""
+    process = None
     try:
-        async with conn.create_process(
+        process = await conn.create_process(
             command=f"env COLUMNS={remote_width} LINES={LINES} {ssh_command}",
             term_type="ansi" if color else "dumb",
             term_size=(remote_width, 1000),
             env={},
-        ) as process:  # type: asyncssh.SSHClientProcess
-            async for line in process.stdout:  # type: bytes | str
-                # Put output into the host's output queue
-                if isinstance(line, bytes):
-                    try:
-                        await output_queue.put(line.decode("utf-8"))
-                    except UnicodeDecodeError as error:
-                        await output_queue.put(
-                            f"Host returns line with bytes that cannot be decoded: {error}"
-                        )
-                elif isinstance(line, str):
-                    await output_queue.put(line)
-                else:
+        )
+        async for line in process.stdout:  # type: bytes | str
+            # Put output into the host's output queue
+            if isinstance(line, bytes):
+                try:
+                    await output_queue.put(line.decode("utf-8"))
+                except UnicodeDecodeError as error:
                     await output_queue.put(
-                        f"Host returns unprintable line: {repr(line)}"
+                        f"Host returns line with bytes that cannot be decoded: {error}"
                     )
+            elif isinstance(line, str):
+                await output_queue.put(line)
+            else:
+                await output_queue.put(
+                    f"Host returns unprintable line: {repr(line)}"
+                )
     except asyncssh.Error as error:
         await output_queue.put(f"Error executing command: {error}")
+    finally:
+        if process:
+            await process.terminate()
+            await process.wait()
 
 
 async def execute(
