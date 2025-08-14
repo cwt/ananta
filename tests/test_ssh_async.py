@@ -85,7 +85,7 @@ async def test_stream_command_output_success():
     """Test stream_command_output with successful streaming."""
     mock_conn = AsyncMock()
     mock_process = AsyncMock()
-    mock_process.terminate = AsyncMock()
+    mock_process.terminate = MagicMock()  # Not async anymore
     mock_process.wait = AsyncMock()
     mock_process.__aenter__.return_value = mock_process
 
@@ -105,12 +105,16 @@ async def test_stream_command_output_success():
     output_queue.put.assert_any_await("line 2")
     output_queue.put.assert_any_await("Host returns unprintable line: 123")
 
+    # Verify that terminate and wait were called
+    mock_process.terminate.assert_called_once()
+    mock_process.wait.assert_awaited_once()
+
 
 async def test_stream_command_output_unicode_error():
     """Test stream_command_output with a UnicodeDecodeError."""
     mock_conn = AsyncMock()
     mock_process = AsyncMock()
-    mock_process.terminate = AsyncMock()
+    mock_process.terminate = MagicMock()  # Not async anymore
     mock_process.wait = AsyncMock()
     mock_process.__aenter__.return_value = mock_process
 
@@ -125,6 +129,10 @@ async def test_stream_command_output_unicode_error():
 
     output_queue.put.assert_awaited_once()
     assert "cannot be decoded" in output_queue.put.await_args.args[0]
+
+    # Verify that terminate and wait were called
+    mock_process.terminate.assert_called_once()
+    mock_process.wait.assert_awaited_once()
 
 
 async def test_stream_command_output_asyncssh_error():

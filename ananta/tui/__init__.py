@@ -486,7 +486,7 @@ class AnantaUrwidTUI:
             cols = self.loop.screen.get_cols_rows()[0]
         remote_width = (
             max(cols - self.max_name_length - 3, 10) - 1
-        )  # Decrease 1 column for the scroollbar.
+        )  # Decrease 1 column for the scrollbar.
 
         output_queue: asyncio.Queue[str | None] = self.output_queues[host_name]
 

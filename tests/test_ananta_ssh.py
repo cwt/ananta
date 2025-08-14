@@ -10,6 +10,8 @@ pytestmark = pytest.mark.asyncio
 class MockSSHProcess:
     def __init__(self, stdout_chunks):
         self.stdout = self._async_iterator(stdout_chunks)
+        self.terminate_called = False
+        self.wait_called = False
 
     async def __aenter__(self):
         return self
@@ -17,11 +19,11 @@ class MockSSHProcess:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    async def terminate(self):
-        pass
+    def terminate(self):  # Not async anymore
+        self.terminate_called = True
 
     async def wait(self):
-        pass
+        self.wait_called = True
 
     @staticmethod
     async def _async_iterator(chunks):

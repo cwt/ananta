@@ -168,8 +168,16 @@ async def stream_command_output(
         await output_queue.put(f"Error executing command: {error}")
     finally:
         if process:
-            await process.terminate()  # type: ignore [func-returns-value]
-            await process.wait()
+            try:
+                process.terminate()  # type: ignore [func-returns-value]
+                await asyncio.wait_for(process.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                # If the process doesn't terminate gracefully, force close
+                process.close()  # type: ignore [func-returns-value]
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    pass  # Process didn't close even after force close
 
 
 async def execute(
