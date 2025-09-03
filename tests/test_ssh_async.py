@@ -11,7 +11,7 @@ pytestmark = pytest.mark.asyncio
 async def test_execute_command_success_bytes():
     """Test execute_command with successful execution returning bytes."""
     mock_conn = AsyncMock()
-    mock_conn.close = AsyncMock()
+    mock_conn.close = MagicMock()
     mock_result = MagicMock()
     mock_result.stdout = b"some byte output"
     mock_conn.run.return_value = mock_result
@@ -20,13 +20,13 @@ async def test_execute_command_success_bytes():
 
     assert output == "some byte output"
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_awaited_once()
+    mock_conn.close.assert_called_once()
 
 
 async def test_execute_command_success_str():
     """Test execute_command with successful execution returning a string."""
     mock_conn = AsyncMock()
-    mock_conn.close = AsyncMock()
+    mock_conn.close = MagicMock()
     mock_result = MagicMock()
     mock_result.stdout = "some string output"
     mock_conn.run.return_value = mock_result
@@ -35,13 +35,13 @@ async def test_execute_command_success_str():
 
     assert output == "some string output"
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_awaited_once()
+    mock_conn.close.assert_called_once()
 
 
 async def test_execute_command_unsupported_type():
     """Test execute_command with an unsupported stdout type."""
     mock_conn = AsyncMock()
-    mock_conn.close = AsyncMock()
+    mock_conn.close = MagicMock()
     mock_result = MagicMock()
     mock_result.stdout = 12345  # Unsupported type
     mock_conn.run.return_value = mock_result
@@ -50,13 +50,13 @@ async def test_execute_command_unsupported_type():
 
     assert "unprintable output, got int" in output
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_awaited_once()
+    mock_conn.close.assert_called_once()
 
 
 async def test_execute_command_unicode_decode_error():
     """Test execute_command handling a UnicodeDecodeError."""
     mock_conn = AsyncMock()
-    mock_conn.close = AsyncMock()
+    mock_conn.close = MagicMock()
     mock_result = MagicMock()
     mock_result.stdout = b"\x80abc"  # Invalid UTF-8 byte
     mock_conn.run.return_value = mock_result
@@ -65,20 +65,20 @@ async def test_execute_command_unicode_decode_error():
 
     assert "cannot be decoded as UTF-8" in output
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_awaited_once()
+    mock_conn.close.assert_called_once()
 
 
 async def test_execute_command_asyncssh_error():
     """Test execute_command handling an asyncssh.Error."""
     mock_conn = AsyncMock()
-    mock_conn.close = AsyncMock()
+    mock_conn.close = MagicMock()
     mock_conn.run.side_effect = asyncssh.Error(code=1, reason="Command failed")
 
     output = await execute_command(mock_conn, "a command", 80, True)
 
     assert "Error executing command: Command failed" in output
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_awaited_once()
+    mock_conn.close.assert_called_once()
 
 
 async def test_stream_command_output_success():
