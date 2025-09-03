@@ -129,7 +129,8 @@ async def execute_command(
     except asyncssh.Error as error:
         output = f"Error executing command: {error}"
     finally:
-        await conn.close()  # type: ignore[func-returns-value]
+        if conn:
+            conn.close()
     return output
 
 
