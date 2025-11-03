@@ -16,8 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 speed = [
-    "uvloop (>=0.21.0,<0.22.0) ; sys_platform != \"win32\"",
-    "winloop (>=0.1.8,<0.3.0) ; sys_platform == \"win32\""
+    "uvloop (>=0.21.0,<0.23.0) ; sys_platform != \"win32\"",
+    "winloop (>=0.1.8,<0.4.0) ; sys_platform == \"win32\""
 ]
 
 [tool.poetry]
@@ -31,12 +31,12 @@ repository = "https://github.com/cwt/ananta"
 ananta = "ananta.ananta:run_cli"
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
-pytest-asyncio = "^0.26.0"
+black = "^25.9.0"
+pytest-asyncio = "^1.2.0"
 tomli = {version = ">=1.0.0,<3.0.0", optional = true}
-pytest = "^8.4"
-pytest-cov = "^6.2"
-mypy = "^1.17"
+pytest = "^8.4.2"
+pytest-cov = "^7.0.0"
+mypy = "^1.18.2"
 pytest-xdist = "^3.8.0"
 
 [[tool.mypy.overrides]]
