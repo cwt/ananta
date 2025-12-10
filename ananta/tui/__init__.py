@@ -684,10 +684,8 @@ class AnantaUrwidTUI:
 
     def run(self) -> None:
         """Run the Ananta TUI main loop."""
-        try:
-            self.asyncio_loop = asyncio.get_event_loop_policy().get_event_loop()
-        except RuntimeError:
-            self.asyncio_loop = asyncio.new_event_loop()
+        # Create a new event loop for the TUI
+        self.asyncio_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.asyncio_loop)
 
         urwid_event_loop = urwid.AsyncioEventLoop(loop=self.asyncio_loop)

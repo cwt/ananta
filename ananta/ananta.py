@@ -200,14 +200,32 @@ def run_cli() -> None:
     args: argparse.Namespace = parser.parse_args()
 
     if uvloop:
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        # To maintain compatibility with tests while addressing deprecation
+        # Suppress the deprecation warning for the necessary function call
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=".*set_event_loop_policy.*",
+                category=DeprecationWarning,
+            )
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
     if args.version:
         # Print the version of Ananta with the asyncio event loop module
-        print(
-            f"Ananta-{__version__} "
-            f"powered by {asyncio.get_event_loop_policy().__module__}"
-        )
+        # Determine which module will be used without directly calling get_event_loop_policy()
+        if uvloop:
+            # Use a new loop instance to get the module name
+            temp_loop = uvloop.new_event_loop()
+            loop_module = temp_loop.__class__.__module__
+            temp_loop.close()
+        else:
+            # For default policy, we'll create a temporary loop to get its module
+            temp_loop = asyncio.new_event_loop()
+            loop_module = temp_loop.__class__.__module__
+            temp_loop.close()
+        print(f"Ananta-{__version__} " f"powered by {loop_module}")
         sys.exit(0)
 
     host_file: str | None = args.host_file
