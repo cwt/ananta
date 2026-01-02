@@ -157,10 +157,11 @@ Ananta provides an interactive Text User Interface (TUI) powered by the `urwid` 
 
 **Launching TUI Mode:**
 
-Launch the TUI with the `--tui` flag:
+Launch the TUI with the `--tui` flag (use `--tui-light` for light terminal backgrounds):
 
 ```bash
 ananta --tui [hosts file] [initial command]
+ananta --tui-light [hosts file] [initial command]
 ```
 
 **Examples:**
@@ -168,6 +169,9 @@ ananta --tui [hosts file] [initial command]
 ```console
 # Launch TUI with a TOML hosts file and no initial command
 $ ananta --tui hosts.toml
+
+# Launch TUI with light theme for light terminal backgrounds
+$ ananta --tui-light hosts.toml
 
 # Launch TUI with a CSV hosts file and run 'uptime' initially
 $ ananta --tui hosts.csv uptime
@@ -203,6 +207,7 @@ $ ananta --tui -t web,db hosts.toml "df -h"
 - `-v, --version`: Display the Ananta version
 - `-k, --default-key`: Specify the default SSH private key
 - `--tui`: Launch the Text User Interface (TUI) mode
+- `--tui-light`: Launch the Text User Interface (TUI) mode with light theme for light terminal backgrounds
 
 ### Demo
 

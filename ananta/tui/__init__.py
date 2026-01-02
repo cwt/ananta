@@ -108,29 +108,7 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
 
 
 # --- Setup colors for hosts ---
-URWID_FG_COLORS = [
-    "yellow",
-    "light red",
-    "light green",
-    "light blue",
-    "light magenta",
-    "light cyan",
-]  # dark colors are not used to avoid confusion with similarity of colors
-shuffle(URWID_FG_COLORS)  # Shuffle to randomize color assignment
-COLORS_CYCLE = cycle(URWID_FG_COLORS)  # Create a cycle in case of many hosts
-
-
-def _get_host_attr_name(host_name: str) -> str:
-    return f"host_{host_name.lower().replace('-', '_').replace(' ', '_').replace('.', '_')}"
-
-
-# format_host_prompt no longer needs palette_list or self
-def format_host_prompt(
-    host_name: str, max_name_length: int
-) -> List[Tuple[str, str]]:
-    attr_name = _get_host_attr_name(host_name)
-    padded_host = host_name.rjust(max_name_length)
-    return [(attr_name, f"[{padded_host}] ")]
+# Colors are now handled within the _populate_host_palette_definitions method
 
 
 class AnantaMainLoop(urwid.MainLoop):
@@ -170,18 +148,61 @@ class RefreshingPile(urwid.Pile):
 class AnantaUrwidTUI:
     """Ananta Text User Interface using Urwid."""
 
-    DEFAULT_PALETTE = [
-        ("status_ok", "light green", "default", None, None, None),
-        ("status_error", "light red", "default", None, None, None),
-        ("status_neutral", "yellow", "default", None, None, None),
-        ("command_echo", "light cyan,bold", "default", None, None, None),
-        ("body", "white", "default", None, None, None),
-        ("input_prompt", "light blue", "default", None, None, None),
-        ("input_prompt_inactive", "dark gray", "default", None, None, None),
-        ("ansi_bold", "bold", "default", None, None, None),
-        ("ansi_underline", "underline", "default", None, None, None),
-        ("ansi_standout", "standout", "default", None, None, None),
-    ]
+    def _get_default_palette(
+        self,
+    ) -> List[Tuple[str, str, str, None, None, None]]:
+        """Return the default palette based on theme."""
+        if self.light_theme:
+            return [
+                ("status_ok", "dark green", "default", None, None, None),
+                ("status_error", "dark red", "default", None, None, None),
+                ("status_neutral", "brown", "default", None, None, None),
+                ("command_echo", "dark blue,bold", "default", None, None, None),
+                ("body", "black", "default", None, None, None),
+                ("input_prompt", "dark blue", "default", None, None, None),
+                (
+                    "input_prompt_inactive",
+                    "light gray",
+                    "default",
+                    None,
+                    None,
+                    None,
+                ),
+                ("ansi_bold", "bold", "default", None, None, None),
+                ("ansi_underline", "underline", "default", None, None, None),
+                ("ansi_standout", "standout", "default", None, None, None),
+            ]
+        else:
+            return [
+                ("status_ok", "light green", "default", None, None, None),
+                ("status_error", "light red", "default", None, None, None),
+                ("status_neutral", "yellow", "default", None, None, None),
+                (
+                    "command_echo",
+                    "light cyan,bold",
+                    "default",
+                    None,
+                    None,
+                    None,
+                ),
+                ("body", "white", "default", None, None, None),
+                ("input_prompt", "light blue", "default", None, None, None),
+                (
+                    "input_prompt_inactive",
+                    "dark gray",
+                    "default",
+                    None,
+                    None,
+                    None,
+                ),
+                ("ansi_bold", "bold", "default", None, None, None),
+                ("ansi_underline", "underline", "default", None, None, None),
+                ("ansi_standout", "standout", "default", None, None, None),
+            ]
+
+    @property
+    def DEFAULT_PALETTE(self) -> List[Tuple[str, str, str, None, None, None]]:
+        return self._get_default_palette()
 
     def __init__(
         self,
@@ -191,6 +212,7 @@ class AnantaUrwidTUI:
         default_key: str | None,
         separate_output: bool,
         allow_empty_line: bool,
+        light_theme: bool = False,
     ):
         """Initialize the Ananta TUI."""
         # --- SSH, connection, and output setup ---
@@ -200,6 +222,7 @@ class AnantaUrwidTUI:
         self.default_key = default_key
         self.separate_output = separate_output
         self.allow_empty_line = allow_empty_line
+        self.light_theme = light_theme
         self.hosts, self.max_name_length = get_hosts(host_file, host_tags)
         self.connections: Dict[str, asyncssh.SSHClientConnection | None] = {
             host[0]: None for host in self.hosts
@@ -233,9 +256,6 @@ class AnantaUrwidTUI:
         self.main_pile = RefreshingPile(widgets, tui=self, focus_item=2)
         self.main_layout = urwid.Frame(body=self.main_pile)
         self.main_pile.focus_position = 2
-        urwid.connect_signal(
-            self.input_field, "change", self.update_prompt_attribute
-        )
         # --- Event loop and async tasks setup ---
         self.loop: urwid.MainLoop | None = None
         self.async_tasks: Set[asyncio.Task[Any]] = set()
@@ -275,10 +295,50 @@ class AnantaUrwidTUI:
                 ]
             )
 
+    def _get_host_attr_name(self, host_name: str) -> str:
+        return f"host_{host_name.lower().replace('-', '_').replace(' ', '_').replace('.', '_')}"
+
+    def format_host_prompt(
+        self, host_name: str, max_name_length: int
+    ) -> List[Tuple[str, str]]:
+        attr_name = self._get_host_attr_name(host_name)
+        padded_host = host_name.rjust(max_name_length)
+        return [(attr_name, f"[{padded_host}] ")]
+
     def _populate_host_palette_definitions(self) -> None:
         """Pre-populates host-specific palette entries."""
+        if self.light_theme:
+            # Use darker colors for light theme
+            URWID_FG_COLORS = [
+                "dark red",
+                "dark green",
+                "dark blue",
+                "dark magenta",
+                "dark cyan",
+                "brown",
+                "black",
+            ]
+            shuffle(URWID_FG_COLORS)  # Shuffle to randomize color assignment
+            COLORS_CYCLE = cycle(
+                URWID_FG_COLORS
+            )  # Create a cycle in case of many hosts
+        else:
+            # Use lighter colors for dark theme (original behavior)
+            URWID_FG_COLORS = [
+                "yellow",
+                "light red",
+                "light green",
+                "light blue",
+                "light magenta",
+                "light cyan",
+            ]  # dark colors are not used to avoid confusion with similarity of colors
+            shuffle(URWID_FG_COLORS)  # Shuffle to randomize color assignment
+            COLORS_CYCLE = cycle(
+                URWID_FG_COLORS
+            )  # Create a cycle in case of many hosts
+
         for host_name, *_ in self.hosts:
-            attr_name = _get_host_attr_name(host_name)
+            attr_name = self._get_host_attr_name(host_name)
             if attr_name not in self.host_palette_definitions:
                 fg_color = next(COLORS_CYCLE)
                 self.host_palette_definitions[attr_name] = (
@@ -392,7 +452,7 @@ class AnantaUrwidTUI:
         if self.is_exiting:
             return
 
-        prompt = format_host_prompt(
+        prompt = self.format_host_prompt(
             host_name, self.max_name_length
         )  # No longer needs self.current_palette
         self.add_output(prompt + [("status_neutral", "Connecting...")])
@@ -464,7 +524,9 @@ class AnantaUrwidTUI:
                 self.async_tasks.add(task)
                 task.add_done_callback(self.async_tasks.discard)
             else:
-                prompt = format_host_prompt(host_name, self.max_name_length)
+                prompt = self.format_host_prompt(
+                    host_name, self.max_name_length
+                )
                 self.add_output(
                     prompt + [("status_error", "Not connected, skipping.")]
                 )
@@ -479,7 +541,7 @@ class AnantaUrwidTUI:
         if self.is_exiting:  # If exiting, do not run commands
             return
 
-        prompt = format_host_prompt(host_name, self.max_name_length)
+        prompt = self.format_host_prompt(host_name, self.max_name_length)
 
         cols = 80
         if self.loop and self.loop.screen:
@@ -622,7 +684,7 @@ class AnantaUrwidTUI:
         for host_name, conn in self.connections.items():
             if conn and not conn.is_closed():
                 self.add_output(
-                    format_host_prompt(host_name, self.max_name_length)
+                    self.format_host_prompt(host_name, self.max_name_length)
                     + [("status_neutral", "Closing...")]
                 )
                 close_conn_tasks.append(

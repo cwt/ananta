@@ -139,6 +139,11 @@ def run_cli() -> None:
         help="Launch the Urwid-based Text User Interface (TUI) mode.",  # Updated help text
     )
     parser.add_argument(
+        "--tui-light",
+        action="store_true",
+        help="Launch the Urwid-based Text User Interface (TUI) mode with light theme for light terminal backgrounds.",
+    )
+    parser.add_argument(
         "-n",
         "-N",
         "--no-color",
@@ -238,7 +243,7 @@ def run_cli() -> None:
         parser.print_help()
         sys.exit(0)
 
-    if args.tui:
+    if args.tui or args.tui_light:
         try:
             import urwid  # noqa -- check if urwid is installed
         except ImportError:
@@ -260,6 +265,7 @@ def run_cli() -> None:
             default_key=args.default_key,
             separate_output=args.separate_output,
             allow_empty_line=args.allow_empty_line,
+            light_theme=args.tui_light,
         )
         app.run()  # This will block until the TUI exits
         sys.exit(0)  # Exit after TUI finishes

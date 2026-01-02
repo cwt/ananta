@@ -1,4 +1,4 @@
-from ananta.tui import AnantaUrwidTUI, format_host_prompt
+from ananta.tui import AnantaUrwidTUI
 from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
 import pytest
@@ -150,11 +150,21 @@ def test_add_output_when_exiting(mock_tui):
 
 
 def test_format_host_prompt():
-    """Test the static host prompt formatting function."""
-    prompt_markup = format_host_prompt("my-host", 10)
-    expected_attr_name = "host_my_host"
-    expected_padding = "   my-host"
-    assert prompt_markup == [(expected_attr_name, f"[{expected_padding}] ")]
+    """Test the host prompt formatting method."""
+    # Create a minimal instance to test the method
+    with patch("ananta.tui.get_hosts", return_value=([], 0)):
+        tui = AnantaUrwidTUI(
+            host_file="dummy.csv",
+            initial_command=None,
+            host_tags=None,
+            default_key=None,
+            separate_output=False,
+            allow_empty_line=False,
+        )
+        prompt_markup = tui.format_host_prompt("my-host", 10)
+        expected_attr_name = "host_my_host"
+        expected_padding = "   my-host"
+        assert prompt_markup == [(expected_attr_name, f"[{expected_padding}] ")]
 
 
 @pytest.mark.asyncio

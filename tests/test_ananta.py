@@ -24,6 +24,7 @@ def test_run_cli_uvloop_linux_success(
         version=False,
         terminal_width=80,
         tui=False,
+        tui_light=False,
     )
     # Simulate uvloop being successfully imported and set in ananta_module.uvloop
     with patch.dict(
@@ -54,6 +55,7 @@ def test_run_cli_uvloop_linux_fail(
         version=False,
         terminal_width=80,
         tui=False,
+        tui_light=False,
     )
     # Simulate uvloop being None (import failed)
     with patch("ananta.ananta.uvloop", None):
@@ -74,6 +76,7 @@ def test_run_cli_winloop_windows_success(
         version=False,
         terminal_width=80,
         tui=False,
+        tui_light=False,
     )
     # Simulate winloop being successfully imported and set in ananta_module.uvloop
     with patch.dict(
@@ -102,6 +105,7 @@ def test_run_cli_terminal_width_from_os_get_terminal_size(
         version=False,
         terminal_width=None,
         tui=False,
+        tui_light=False,
     )
     mock_get_terminal_size.return_value = os.terminal_size(
         (120, 24)
@@ -129,6 +133,7 @@ def test_run_cli_terminal_width_from_env_columns(
         version=False,
         terminal_width=None,
         tui=False,
+        tui_light=False,
     )
 
     # os.get_terminal_size() WILL be called to prepare the default for os.environ.get()
@@ -151,6 +156,7 @@ def test_run_cli_terminal_width_from_arg(mock_parse_args, mock_main_func):
         version=False,
         terminal_width=90,
         tui=False,
+        tui_light=False,
     )
 
     run_cli()
@@ -171,6 +177,7 @@ def test_run_cli_terminal_width_os_error(
         version=False,
         terminal_width=None,
         tui=False,
+        tui_light=False,
     )
 
     run_cli()
@@ -192,6 +199,7 @@ def test_run_cli_platform_imports(mock_set_event_loop_policy, capsys, tmp_path):
         allow_cursor_control=False,
         default_key=None,
         tui=False,
+        tui_light=False,
     )
     (tmp_path / "hosts.csv").write_text(
         "host1,1.1.1.1,22,user,#", encoding="utf-8"
@@ -305,3 +313,34 @@ def test_run_cli_platform_imports(mock_set_event_loop_policy, capsys, tmp_path):
             )
             ananta_module.uvloop = original_ananta_uvloop
             importlib.reload(ananta_module)
+
+
+@patch("ananta.ananta.main", new_callable=AsyncMock)  # Mock main
+@patch("ananta.ananta.argparse.ArgumentParser.parse_args")
+def test_run_cli_tui_light_option(mock_parse_args, mock_main_func):
+    """Test that the --tui-light option is properly handled."""
+    mock_parse_args.return_value = MagicMock(
+        host_file="hosts.csv",
+        command=["cmd"],
+        version=False,
+        terminal_width=80,
+        tui=False,  # Regular tui is False
+        tui_light=True,  # But tui_light is True
+    )
+
+    # Mock urwid import to avoid TUI issues in test
+    with patch.dict("sys.modules", {"urwid": MagicMock()}):
+        # Mock the TUI run method
+        with patch("ananta.tui.AnantaUrwidTUI") as mock_tui_class:
+            mock_tui_instance = MagicMock()
+            mock_tui_class.return_value = mock_tui_instance
+            try:
+                run_cli()
+            except SystemExit:
+                # TUI was called, which is expected
+                pass
+
+    # Verify the TUI was initialized with light_theme=True
+    mock_tui_class.assert_called_once()
+    args, kwargs = mock_tui_class.call_args
+    assert kwargs.get("light_theme") == True
