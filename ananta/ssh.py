@@ -58,7 +58,7 @@ async def retry_connect(
         raise ConnectionError(
             f"Connection to {ip_address} timed out after {timeout}s"
         )
-    raise ConnectionError(f"Error connecting to {ip_address}: {last_error}")
+    raise ConnectionError(f"Error connecting to {ip_address}: {last_error}") from last_error
 
 
 def get_ssh_keys(key_path: str | None, default_key: str | None) -> list[str]:
@@ -100,7 +100,7 @@ async def establish_ssh_connection(
             ip_address, ssh_port, username, client_keys, timeout, max_retries
         )
     except Exception as error:
-        raise ConnectionError(f"Error connecting to {ip_address}: {error}")
+        raise ConnectionError(f"Error connecting to {ip_address}: {error}") from error
 
 
 async def execute_command(
