@@ -34,6 +34,27 @@ def _load_toml_data(toml_file_path: str) -> Dict[str, Any]:
         )
 
 
+def _validate_port(port: int) -> int:
+    """Validate that port is in valid range 1-65535."""
+    if not (1 <= port <= 65535):
+        raise ValueError(f"Port {port} is not in valid range 1-65535")
+    return port
+
+
+def _validate_timeout(timeout: float) -> float:
+    """Validate that timeout is positive."""
+    if timeout <= 0:
+        raise ValueError(f"Timeout {timeout} must be positive")
+    return timeout
+
+
+def _validate_retries(retries: int) -> int:
+    """Validate that retries is non-negative."""
+    if retries < 0:
+        raise ValueError(f"Retries {retries} must be non-negative")
+    return retries
+
+
 def _get_hosts_from_toml(
     toml_file_path: str, host_tags_filter_str: str | None
 ) -> Tuple[List[Tuple[str, str, int, str, str, float, int]], int]:
@@ -64,13 +85,30 @@ def _get_hosts_from_toml(
         return [], 0
 
     defaults: Dict[str, Any] = data.get("default", {})
-    default_port: int = defaults.get("port", 22)
+
+    # Validate and set default values
+    try:
+        default_port = _validate_port(int(defaults.get("port", 22)))
+    except (ValueError, TypeError):
+        print(f"Warning: Invalid default port in '{toml_file_path}', using 22")
+        default_port = 22
+
     default_username: str | None = defaults.get("username")
     default_key_path: str = defaults.get("key_path", "#")
     # default tags won't be overridden but got appended by host-specific tags
     default_tags: List[str] = defaults.get("tags", [])
-    default_timeout: float = defaults.get("timeout", 5.0)
-    default_retries: int = defaults.get("retries", 2)
+
+    try:
+        default_timeout = _validate_timeout(float(defaults.get("timeout", 5.0)))
+    except (ValueError, TypeError):
+        print(f"Warning: Invalid default timeout in '{toml_file_path}', using 5.0")
+        default_timeout = 5.0
+
+    try:
+        default_retries = _validate_retries(int(defaults.get("retries", 2)))
+    except (ValueError, TypeError):
+        print(f"Warning: Invalid default retries in '{toml_file_path}', using 2")
+        default_retries = 2
 
     for host_name, host_config in data.items():
         if host_name == "default":
@@ -93,7 +131,7 @@ def _get_hosts_from_toml(
 
         try:
             port_str = host_config.get("port", default_port)
-            ssh_port = int(port_str)
+            ssh_port = _validate_port(int(port_str))
             username = host_config.get("username", default_username)
             if not username or not isinstance(username, str):
                 print(
@@ -102,8 +140,16 @@ def _get_hosts_from_toml(
                 )
                 continue
             key_path = str(host_config.get("key_path", default_key_path))
-            timeout = float(host_config.get("timeout", default_timeout))
-            retries = int(host_config.get("retries", default_retries))
+            try:
+                timeout = _validate_timeout(float(host_config.get("timeout", default_timeout)))
+            except (ValueError, TypeError):
+                print(f"Warning: Invalid timeout for host '{host_name}' in '{toml_file_path}', using {default_timeout}")
+                timeout = default_timeout
+            try:
+                retries = _validate_retries(int(host_config.get("retries", default_retries)))
+            except (ValueError, TypeError):
+                print(f"Warning: Invalid retries for host '{host_name}' in '{toml_file_path}', using {default_retries}")
+                retries = default_retries
             current_host_tags_list: List[str] = host_config.get("tags", [])
             if not isinstance(current_host_tags_list, list) or not all(
                 isinstance(tag, str) for tag in current_host_tags_list
@@ -169,9 +215,9 @@ def _get_hosts_from_csv(
 
                 try:
                     host_name, ip_address, str_port, username = row[:4]
-                    ssh_port = int(
+                    ssh_port = _validate_port(int(
                         str_port
-                    )  # ValueError here is specific to port format
+                    ))  # ValueError here is specific to port format
 
                     key_path = row[4] if len(row) > 4 else ""
                     tags_in_csv_str = row[5] if len(row) > 5 else ""
