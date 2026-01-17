@@ -101,13 +101,17 @@ def _get_hosts_from_toml(
     try:
         default_timeout = _validate_timeout(float(defaults.get("timeout", 5.0)))
     except (ValueError, TypeError):
-        print(f"Warning: Invalid default timeout in '{toml_file_path}', using 5.0")
+        print(
+            f"Warning: Invalid default timeout in '{toml_file_path}', using 5.0"
+        )
         default_timeout = 5.0
 
     try:
         default_retries = _validate_retries(int(defaults.get("retries", 2)))
     except (ValueError, TypeError):
-        print(f"Warning: Invalid default retries in '{toml_file_path}', using 2")
+        print(
+            f"Warning: Invalid default retries in '{toml_file_path}', using 2"
+        )
         default_retries = 2
 
     for host_name, host_config in data.items():
@@ -141,14 +145,22 @@ def _get_hosts_from_toml(
                 continue
             key_path = str(host_config.get("key_path", default_key_path))
             try:
-                timeout = _validate_timeout(float(host_config.get("timeout", default_timeout)))
+                timeout = _validate_timeout(
+                    float(host_config.get("timeout", default_timeout))
+                )
             except (ValueError, TypeError):
-                print(f"Warning: Invalid timeout for host '{host_name}' in '{toml_file_path}', using {default_timeout}")
+                print(
+                    f"Warning: Invalid timeout for host '{host_name}' in '{toml_file_path}', using {default_timeout}"
+                )
                 timeout = default_timeout
             try:
-                retries = _validate_retries(int(host_config.get("retries", default_retries)))
+                retries = _validate_retries(
+                    int(host_config.get("retries", default_retries))
+                )
             except (ValueError, TypeError):
-                print(f"Warning: Invalid retries for host '{host_name}' in '{toml_file_path}', using {default_retries}")
+                print(
+                    f"Warning: Invalid retries for host '{host_name}' in '{toml_file_path}', using {default_retries}"
+                )
                 retries = default_retries
             current_host_tags_list: List[str] = host_config.get("tags", [])
             if not isinstance(current_host_tags_list, list) or not all(
@@ -168,7 +180,15 @@ def _get_hosts_from_toml(
                 current_host_tags_set
             ):
                 hosts_to_execute.append(
-                    (host_name, ip_address, ssh_port, username, key_path, timeout, retries)
+                    (
+                        host_name,
+                        ip_address,
+                        ssh_port,
+                        username,
+                        key_path,
+                        timeout,
+                        retries,
+                    )
                 )
         except ValueError:
             print(
@@ -215,9 +235,9 @@ def _get_hosts_from_csv(
 
                 try:
                     host_name, ip_address, str_port, username = row[:4]
-                    ssh_port = _validate_port(int(
-                        str_port
-                    ))  # ValueError here is specific to port format
+                    ssh_port = _validate_port(
+                        int(str_port)
+                    )  # ValueError here is specific to port format
 
                     key_path = row[4] if len(row) > 4 else ""
                     tags_in_csv_str = row[5] if len(row) > 5 else ""
@@ -238,7 +258,15 @@ def _get_hosts_from_csv(
                     current_host_tags_set
                 ):
                     hosts_to_execute.append(
-                        (host_name, ip_address, ssh_port, username, key_path, 5.0, 2)
+                        (
+                            host_name,
+                            ip_address,
+                            ssh_port,
+                            username,
+                            key_path,
+                            5.0,
+                            2,
+                        )
                     )
     except FileNotFoundError:
         print(f"Error: CSV hosts file not found at '{csv_file_path}'")

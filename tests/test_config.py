@@ -89,9 +89,25 @@ def test_get_hosts_no_tags(tmp_path):
         len(hosts) == 4
     )  # host-1, host-2, host-3, host-5 (host-4 is commented, host-6 bad format)
     assert max_len == 6  # Length of "host-1", "host-2", etc.
-    assert hosts[0] == ("host-1", "10.0.0.1", 22, "user1", "/path/to/key1", 5.0, 2)
+    assert hosts[0] == (
+        "host-1",
+        "10.0.0.1",
+        22,
+        "user1",
+        "/path/to/key1",
+        5.0,
+        2,
+    )
     assert hosts[1] == ("host-2", "10.0.0.2", 2202, "user2", "#", 5.0, 2)
-    assert hosts[2] == ("host-3", "10.0.0.3", 22, "user3", "/specific/key3", 5.0, 2)
+    assert hosts[2] == (
+        "host-3",
+        "10.0.0.3",
+        22,
+        "user3",
+        "/specific/key3",
+        5.0,
+        2,
+    )
     assert hosts[3] == ("host-5", "10.0.0.5", 22, "user5", "#", 5.0, 2)
 
 
