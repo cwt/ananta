@@ -19,10 +19,17 @@ import sys
 
 uvloop: ModuleType | None = None
 try:
-    if sys.platform == "win32":
-        import winloop as uvloop
-    else:
-        import uvloop
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter(
+            "ignore",
+            category=DeprecationWarning,
+        )
+        if sys.platform == "win32":
+            import winloop as uvloop
+        else:
+            import uvloop
 except ImportError:
     pass  # uvloop or winloop is an optional for speedup, not a requirement
 

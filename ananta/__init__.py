@@ -1,3 +1,8 @@
+import warnings
+
+# Suppress deprecation warnings from uvloop/winloop for Python 3.10+ compatibility
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 from importlib.metadata import version
 
 __version__ = version("ananta")
