@@ -62,6 +62,8 @@ port = 22
 username = "user"
 key_path = "#"
 tags = ["common"]
+timeout = 5.0
+retries = 2
 
 [host-1]
 ip = "10.0.0.1"
@@ -82,10 +84,12 @@ tags = ["ubuntu", "db"]
 ```
 
 - **[default] Section**:
-  - Optional section to set default values for `port`, `username`, `key_path`, and `tags`.
+  - Optional section to set default values for `port`, `username`, `key_path`, `tags`, `timeout`, and `retries`.
   - `key_path` can be `#` to use the default SSH key which can be specified via `-k` or common keys in `~/.ssh/`.
   - Fields not specified in a host section will use these defaults (except `ip`, which is required).
   - `tags`: Default tags applied to all hosts, appended to host-specific tags.
+  - `timeout`: Default SSH connection timeout in seconds (default: 5.0).
+  - `retries`: Default number of SSH connection retry attempts (default: 2).
 - **Host Sections**:
   - Each section (e.g., `[host-1]`) defines a host with the following fields to override defaults:
     - `ip`: Required IP address or resolvable hostname
@@ -93,11 +97,14 @@ tags = ["ubuntu", "db"]
     - `username`: SSH username
     - `key_path`: Path to SSH private key
     - `tags`: Optional list of tags (e.g., `["web", "prod"]`)
+    - `timeout`: SSH connection timeout in seconds for this host
+    - `retries`: Number of SSH connection retry attempts for this host
 - **Tags**:
   - Tags from `[default]` are *appended* to tags specified in each host section.
   - For example, if `default.tags = ["common"]` and `host-3.tags = ["arch", "web"]`, `host-3` will have tags `["common", "arch", "web"]`.
   - Use the `-t` option to filter hosts by tags (e.g., `-t common,web` matches hosts with any of these tags).
 - **Note**: TOML parsing requires `tomli` on Python 3.10 (included in Ananta's dependencies) or `tomllib` on Python 3.11 and above.
+- **CSV Limitations**: CSV files do not support default values or per-host `timeout` and `retries`; these are fixed to 5.0 seconds and 2 retries respectively.
 
 #### CSV Host File
 

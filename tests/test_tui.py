@@ -21,8 +21,8 @@ def mock_tui():
     ):
         # Setup mock for get_hosts
         mock_hosts_data = [
-            ("host-1", "10.0.0.1", 22, "user1", "/key1"),
-            ("host-2", "10.0.0.2", 2222, "user2", "#"),
+            ("host-1", "10.0.0.1", 22, "user1", "/key1", 5.0, 2),
+            ("host-2", "10.0.0.2", 2222, "user2", "#", 5.0, 2),
         ]
         mock_get_hosts.return_value = (mock_hosts_data, 6)  # (hosts, max_len)
 

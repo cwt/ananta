@@ -169,6 +169,8 @@ async def test_execute_connection_error(mock_establish_conn):
         None,
         output_queue,
         True,
+        5.0,
+        2,
     )
 
     output_queue.put.assert_any_await(
@@ -200,6 +202,8 @@ async def test_execute_runtime_error(mock_establish_conn):
             None,
             output_queue,
             True,
+            5.0,
+            2,
         )
 
         # The error from stream_command_output is caught inside stream_command_output and put on the queue.
@@ -219,6 +223,8 @@ async def test_execute_runtime_error(mock_establish_conn):
             None,
             output_queue,
             True,
+            5.0,
+            2,
         )
         output_queue.put.assert_any_await(
             "Error executing command on host1: Forced runtime error"

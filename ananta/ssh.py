@@ -194,13 +194,15 @@ async def execute(
     default_key: str | None,
     output_queue: asyncio.Queue,
     color: bool,
+    timeout: float,
+    max_retries: int,
 ) -> None:
     """Execute the SSH command on the remote host and handle the output."""
     remote_width = local_display_width - max_name_length - 3
 
     try:
         conn = await establish_ssh_connection(
-            ip_address, ssh_port, username, key_path, default_key
+            ip_address, ssh_port, username, key_path, default_key, timeout, max_retries
         )
         if separate_output:
             output = await execute_command(

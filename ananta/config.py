@@ -36,11 +36,11 @@ def _load_toml_data(toml_file_path: str) -> Dict[str, Any]:
 
 def _get_hosts_from_toml(
     toml_file_path: str, host_tags_filter_str: str | None
-) -> Tuple[List[Tuple[str, str, int, str, str]], int]:
+) -> Tuple[List[Tuple[str, str, int, str, str, float, int]], int]:
     """
     Reads hosts from a TOML file and returns a list of tuples with host details.
     """
-    hosts_to_execute: List[Tuple[str, str, int, str, str]] = []
+    hosts_to_execute: List[Tuple[str, str, int, str, str, float, int]] = []
     active_tags_filter: Set[str] = (
         set(host_tags_filter_str.split(",")) if host_tags_filter_str else set()
     )
@@ -69,6 +69,8 @@ def _get_hosts_from_toml(
     default_key_path: str = defaults.get("key_path", "#")
     # default tags won't be overridden but got appended by host-specific tags
     default_tags: List[str] = defaults.get("tags", [])
+    default_timeout: float = defaults.get("timeout", 5.0)
+    default_retries: int = defaults.get("retries", 2)
 
     for host_name, host_config in data.items():
         if host_name == "default":
@@ -100,6 +102,8 @@ def _get_hosts_from_toml(
                 )
                 continue
             key_path = str(host_config.get("key_path", default_key_path))
+            timeout = float(host_config.get("timeout", default_timeout))
+            retries = int(host_config.get("retries", default_retries))
             current_host_tags_list: List[str] = host_config.get("tags", [])
             if not isinstance(current_host_tags_list, list) or not all(
                 isinstance(tag, str) for tag in current_host_tags_list
@@ -118,7 +122,7 @@ def _get_hosts_from_toml(
                 current_host_tags_set
             ):
                 hosts_to_execute.append(
-                    (host_name, ip_address, ssh_port, username, key_path)
+                    (host_name, ip_address, ssh_port, username, key_path, timeout, retries)
                 )
         except ValueError:
             print(
@@ -139,11 +143,11 @@ def _get_hosts_from_toml(
 
 def _get_hosts_from_csv(
     csv_file_path: str, host_tags_filter_str: str | None
-) -> Tuple[List[Tuple[str, str, int, str, str]], int]:
+) -> Tuple[List[Tuple[str, str, int, str, str, float, int]], int]:
     """
     Reads hosts from a CSV file and returns a list of tuples with host details.
     """
-    hosts_to_execute: List[Tuple[str, str, int, str, str]] = []
+    hosts_to_execute: List[Tuple[str, str, int, str, str, float, int]] = []
     active_tags_filter: Set[str] = (
         set(host_tags_filter_str.split(",")) if host_tags_filter_str else set()
     )
@@ -188,7 +192,7 @@ def _get_hosts_from_csv(
                     current_host_tags_set
                 ):
                     hosts_to_execute.append(
-                        (host_name, ip_address, ssh_port, username, key_path)
+                        (host_name, ip_address, ssh_port, username, key_path, 5.0, 2)
                     )
     except FileNotFoundError:
         print(f"Error: CSV hosts file not found at '{csv_file_path}'")
@@ -207,7 +211,7 @@ def _get_hosts_from_csv(
 
 def get_hosts(
     host_file_path: str, host_tags: str | None
-) -> Tuple[List[Tuple[str, str, int, str, str]], int]:
+) -> Tuple[List[Tuple[str, str, int, str, str, float, int]], int]:
     """
     Reads hosts from a file (TOML or CSV) and returns a list of tuples with host details.
     """

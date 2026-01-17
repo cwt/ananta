@@ -13,7 +13,7 @@ pytestmark = pytest.mark.tui
 def mock_tui():
     """Fixture to create a mocked AnantaUrwidTUI instance for testing."""
     with patch("ananta.tui.get_hosts") as mock_get_hosts:
-        mock_hosts_data = [("host-1", "10.0.0.1", 22, "user1", "/key1")]
+        mock_hosts_data = [("host-1", "10.0.0.1", 22, "user1", "/key1", 5.0, 2)]
         mock_get_hosts.return_value = (mock_hosts_data, 6)
 
         tui = AnantaUrwidTUI(

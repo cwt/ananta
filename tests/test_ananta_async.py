@@ -75,8 +75,8 @@ async def test_main_with_hosts_and_options(
 ):
     # Setup mock_get_hosts to return some hosts
     mock_hosts_data = [
-        ("host1", "10.0.0.1", 22, "user1", "/key1"),
-        ("host2", "10.0.0.2", 2222, "user2", "#"),
+        ("host1", "10.0.0.1", 22, "user1", "/key1", 5.0, 2),
+        ("host2", "10.0.0.2", 2222, "user2", "#", 5.0, 2),
     ]
     mock_get_hosts.return_value = (
         mock_hosts_data,
@@ -127,6 +127,8 @@ async def test_main_with_hosts_and_options(
         "/default.key",
         q1,
         False,
+        5.0,
+        2,
     )
     mock_execute.assert_any_call(
         "host2",
@@ -141,6 +143,8 @@ async def test_main_with_hosts_and_options(
         "/default.key",
         q2,
         False,
+        5.0,
+        2,
     )
 
     q1.put.assert_called_with(None)

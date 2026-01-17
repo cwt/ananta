@@ -89,10 +89,10 @@ def test_get_hosts_no_tags(tmp_path):
         len(hosts) == 4
     )  # host-1, host-2, host-3, host-5 (host-4 is commented, host-6 bad format)
     assert max_len == 6  # Length of "host-1", "host-2", etc.
-    assert hosts[0] == ("host-1", "10.0.0.1", 22, "user1", "/path/to/key1")
-    assert hosts[1] == ("host-2", "10.0.0.2", 2202, "user2", "#")
-    assert hosts[2] == ("host-3", "10.0.0.3", 22, "user3", "/specific/key3")
-    assert hosts[3] == ("host-5", "10.0.0.5", 22, "user5", "#")
+    assert hosts[0] == ("host-1", "10.0.0.1", 22, "user1", "/path/to/key1", 5.0, 2)
+    assert hosts[1] == ("host-2", "10.0.0.2", 2202, "user2", "#", 5.0, 2)
+    assert hosts[2] == ("host-3", "10.0.0.3", 22, "user3", "/specific/key3", 5.0, 2)
+    assert hosts[3] == ("host-5", "10.0.0.5", 22, "user5", "#", 5.0, 2)
 
 
 def test_get_hosts_with_tags(tmp_path):
@@ -160,6 +160,8 @@ def test_get_hosts_toml_valid_with_defaults(tmp_path):
             2222,
             "default_user",
             "/default/key.pem",
+            5.0,
+            2,
         ),
         "host-toml-2": (
             "host-toml-2",
@@ -167,6 +169,8 @@ def test_get_hosts_toml_valid_with_defaults(tmp_path):
             22,
             "toml_user2",
             "/default/key.pem",
+            5.0,
+            2,
         ),
         "host-toml-3": (
             "host-toml-3",
@@ -174,6 +178,8 @@ def test_get_hosts_toml_valid_with_defaults(tmp_path):
             2222,
             "default_user",
             "#",
+            5.0,
+            2,
         ),
         "host-toml-4 with space": (
             "host-toml-4 with space",
@@ -181,6 +187,8 @@ def test_get_hosts_toml_valid_with_defaults(tmp_path):
             2222,
             "another_user",
             "/default/key.pem",
+            5.0,
+            2,
         ),
     }
     for host_data in hosts:
@@ -200,6 +208,8 @@ def test_get_hosts_toml_no_defaults(tmp_path):
         22,
         "nodef_user1",
         "/key1.pem",
+        5.0,
+        2,
     )
 
 
@@ -337,6 +347,8 @@ def test_get_hosts_toml_python311_uses_tomllib(mock_tomllib_load, tmp_path):
         22,
         "nodef_user1",
         "/key1.pem",
+        5.0,
+        2,
     )
     mock_tomllib_load.assert_called_once()
 
@@ -386,6 +398,8 @@ def test_get_hosts_toml_python310_tomli_installed(mock_tomllib_load, tmp_path):
         22,
         "nodef_user1",
         "/key1.pem",
+        5.0,
+        2,
     )
     mock_tomllib_load.assert_called_once()
 

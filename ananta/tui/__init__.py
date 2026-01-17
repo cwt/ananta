@@ -447,6 +447,8 @@ class AnantaUrwidTUI:
         port: int,
         user: str,
         key: str,
+        timeout: float,
+        retries: int,
     ) -> None:
         """Establish an SSH connection to a single host."""
         if self.is_exiting:
@@ -459,7 +461,7 @@ class AnantaUrwidTUI:
 
         try:
             conn = await establish_ssh_connection(
-                ip, port, user, key, self.default_key, timeout=10.0
+                ip, port, user, key, self.default_key, timeout, retries
             )
         except Exception as e:
             self.connections[host_name] = None

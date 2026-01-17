@@ -102,8 +102,10 @@ async def main(  # This is the non-TUI main function
             default_key,
             output_queues[host_name],  # Pass the queue here
             color,
+            timeout,
+            retries,
         )
-        for host_name, ip_address, ssh_port, username, key_path in hosts_to_execute
+        for host_name, ip_address, ssh_port, username, key_path, timeout, retries in hosts_to_execute
     ]
 
     # Execute all command execution tasks concurrently
