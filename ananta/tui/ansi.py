@@ -116,8 +116,6 @@ def _expand_tabs_with_col_tracking(
     for char in text:
         if char == "\t":
             spaces_to_add = tab_width - (current_col % tab_width)
-            if spaces_to_add == 0 and tab_width > 0:
-                spaces_to_add = tab_width
             expanded_text.append(" " * spaces_to_add)
             current_col += spaces_to_add
         else:
