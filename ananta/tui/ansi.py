@@ -3,7 +3,6 @@ import urwid
 from typing import List, Tuple
 from dataclasses import dataclass, field
 
-
 _DEFAULT_FG_COLOR = "default"  # Urwid's default color string for foreground
 _DEFAULT_BG_COLOR = "default"  # Urwid's default color string for background
 

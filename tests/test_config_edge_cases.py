@@ -58,8 +58,7 @@ def test_get_hosts_from_toml_non_dictionary_section(tmp_path, capsys):
     Test that _get_hosts_from_toml handles non-dictionary sections gracefully.
     """
     toml_with_invalid_section = tmp_path / "invalid_section.toml"
-    toml_with_invalid_section.write_text(
-        """
+    toml_with_invalid_section.write_text("""
 [host1]
 ip = "1.1.1.1"
 port = 22
@@ -67,8 +66,7 @@ username = "user1"
 
 [invalid_section]
 this = "is not a dictionary of hosts"
-"""
-    )
+""")
 
     hosts, max_len = _get_hosts_from_toml(str(toml_with_invalid_section), None)
     captured = capsys.readouterr()
@@ -83,13 +81,11 @@ def test_get_hosts_from_toml_missing_username(tmp_path, capsys):
     Test that _get_hosts_from_toml handles a missing username gracefully.
     """
     toml_without_username = tmp_path / "missing_username.toml"
-    toml_without_username.write_text(
-        """
+    toml_without_username.write_text("""
 [host1]
 ip = "1.1.1.1"
 port = 22
-"""
-    )
+""")
 
     hosts, max_len = _get_hosts_from_toml(str(toml_without_username), None)
     captured = capsys.readouterr()
@@ -104,15 +100,13 @@ def test_get_hosts_from_toml_invalid_tags(tmp_path, capsys):
     Test that _get_hosts_from_toml handles invalid tags gracefully.
     """
     toml_with_invalid_tags = tmp_path / "invalid_tags.toml"
-    toml_with_invalid_tags.write_text(
-        """
+    toml_with_invalid_tags.write_text("""
 [host1]
 ip = "1.1.1.1"
 port = 22
 username = "user1"
 tags = "not-a-list"
-"""
-    )
+""")
 
     hosts, max_len = _get_hosts_from_toml(str(toml_with_invalid_tags), None)
     captured = capsys.readouterr()
@@ -127,14 +121,12 @@ def test_get_hosts_from_toml_invalid_port(tmp_path, capsys):
     Test that _get_hosts_from_toml handles an invalid port gracefully.
     """
     toml_with_invalid_port = tmp_path / "invalid_port.toml"
-    toml_with_invalid_port.write_text(
-        """
+    toml_with_invalid_port.write_text("""
 [host1]
 ip = "1.1.1.1"
 port = "not-a-number"
 username = "user1"
-"""
-    )
+""")
 
     hosts, max_len = _get_hosts_from_toml(str(toml_with_invalid_port), None)
     captured = capsys.readouterr()

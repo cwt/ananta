@@ -15,7 +15,6 @@ from ananta.output import (
 )
 from unittest.mock import AsyncMock, patch
 
-
 ALL_COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
 
 
