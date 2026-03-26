@@ -148,7 +148,7 @@ async def stream_command_output(
         process = await conn.create_process(
             command=f"env COLUMNS={remote_width} LINES={LINES} {ssh_command}",
             term_type="ansi" if color else "dumb",
-            term_size=(remote_width, 1000),
+            term_size=(remote_width, LINES),
             env={},
         )
         async for line in process.stdout:  # type: bytes | str
