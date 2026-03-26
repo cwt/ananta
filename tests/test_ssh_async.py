@@ -11,7 +11,6 @@ pytestmark = pytest.mark.asyncio
 async def test_execute_command_success_bytes():
     """Test execute_command with successful execution returning bytes."""
     mock_conn = AsyncMock()
-    mock_conn.close = MagicMock()
     mock_result = MagicMock()
     mock_result.stdout = b"some byte output"
     mock_conn.run.return_value = mock_result
@@ -20,13 +19,13 @@ async def test_execute_command_success_bytes():
 
     assert output == "some byte output"
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_called_once()
+    # Connection close is now handled by execute(), not execute_command()
+    mock_conn.close.assert_not_called()
 
 
 async def test_execute_command_success_str():
     """Test execute_command with successful execution returning a string."""
     mock_conn = AsyncMock()
-    mock_conn.close = MagicMock()
     mock_result = MagicMock()
     mock_result.stdout = "some string output"
     mock_conn.run.return_value = mock_result
@@ -35,13 +34,13 @@ async def test_execute_command_success_str():
 
     assert output == "some string output"
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_called_once()
+    # Connection close is now handled by execute(), not execute_command()
+    mock_conn.close.assert_not_called()
 
 
 async def test_execute_command_unsupported_type():
     """Test execute_command with an unsupported stdout type."""
     mock_conn = AsyncMock()
-    mock_conn.close = MagicMock()
     mock_result = MagicMock()
     mock_result.stdout = 12345  # Unsupported type
     mock_conn.run.return_value = mock_result
@@ -50,13 +49,13 @@ async def test_execute_command_unsupported_type():
 
     assert "unprintable output, got int" in output
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_called_once()
+    # Connection close is now handled by execute(), not execute_command()
+    mock_conn.close.assert_not_called()
 
 
 async def test_execute_command_unicode_decode_error():
     """Test execute_command handling a UnicodeDecodeError."""
     mock_conn = AsyncMock()
-    mock_conn.close = MagicMock()
     mock_result = MagicMock()
     mock_result.stdout = b"\x80abc"  # Invalid UTF-8 byte
     mock_conn.run.return_value = mock_result
@@ -65,20 +64,21 @@ async def test_execute_command_unicode_decode_error():
 
     assert "cannot be decoded as UTF-8" in output
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_called_once()
+    # Connection close is now handled by execute(), not execute_command()
+    mock_conn.close.assert_not_called()
 
 
 async def test_execute_command_asyncssh_error():
     """Test execute_command handling an asyncssh.Error."""
     mock_conn = AsyncMock()
-    mock_conn.close = MagicMock()
     mock_conn.run.side_effect = asyncssh.Error(code=1, reason="Command failed")
 
     output = await execute_command(mock_conn, "a command", 80, True)
 
     assert "Error executing command: Command failed" in output
     mock_conn.run.assert_awaited_once()
-    mock_conn.close.assert_called_once()
+    # Connection close is now handled by execute(), not execute_command()
+    mock_conn.close.assert_not_called()
 
 
 async def test_stream_command_output_success():
@@ -182,7 +182,10 @@ async def test_execute_connection_error(mock_establish_conn):
 async def test_execute_runtime_error(mock_establish_conn):
     """Test execute handling a RuntimeError."""
     # This is a bit tricky to trigger naturally, so we'll mock a later call to raise it.
-    mock_establish_conn.return_value = AsyncMock()
+    mock_conn = AsyncMock()
+    mock_conn.is_closed = MagicMock(return_value=False)
+    mock_conn.close = MagicMock()
+    mock_establish_conn.return_value = mock_conn
     with patch(
         "ananta.ssh.stream_command_output", new_callable=AsyncMock
     ) as mock_stream:
@@ -229,3 +232,154 @@ async def test_execute_runtime_error(mock_establish_conn):
         output_queue.put.assert_any_await(
             "Error executing command on host1: Forced runtime error"
         )
+
+
+@patch("ananta.ssh.establish_ssh_connection", new_callable=AsyncMock)
+async def test_execute_closes_connection_separate_output(mock_establish_conn):
+    """Test that execute properly closes the connection in separate output mode."""
+    from unittest.mock import PropertyMock
+
+    mock_conn = AsyncMock()
+    # is_closed() is a regular method in asyncssh, not async
+    mock_conn.is_closed = MagicMock(return_value=False)
+    # close() is also a regular method in asyncssh
+    mock_conn.close = MagicMock()
+    mock_conn.wait_closed = AsyncMock()
+    mock_establish_conn.return_value = mock_conn
+
+    with patch(
+        "ananta.ssh.execute_command", new_callable=AsyncMock
+    ) as mock_exec_cmd:
+        mock_exec_cmd.return_value = "command output"
+        output_queue = AsyncMock(spec=asyncio.Queue)
+
+        await execute(
+            "host1",
+            "1.1.1.1",
+            22,
+            "user",
+            None,
+            "cmd",
+            10,
+            80,
+            True,  # separate_output
+            None,
+            output_queue,
+            True,
+            5.0,
+            2,
+        )
+
+        # Verify connection was closed
+        mock_conn.close.assert_called_once()
+        mock_conn.wait_closed.assert_awaited_once()
+
+
+@patch("ananta.ssh.establish_ssh_connection", new_callable=AsyncMock)
+async def test_execute_closes_connection_streaming(mock_establish_conn):
+    """Test that execute properly closes the connection in streaming mode."""
+    mock_conn = AsyncMock()
+    mock_conn.is_closed = MagicMock(return_value=False)
+    mock_conn.close = MagicMock()
+    mock_conn.wait_closed = AsyncMock()
+    mock_establish_conn.return_value = mock_conn
+
+    with patch(
+        "ananta.ssh.stream_command_output", new_callable=AsyncMock
+    ) as mock_stream:
+        output_queue = AsyncMock(spec=asyncio.Queue)
+
+        await execute(
+            "host1",
+            "1.1.1.1",
+            22,
+            "user",
+            None,
+            "cmd",
+            10,
+            80,
+            False,  # streaming mode
+            None,
+            output_queue,
+            True,
+            5.0,
+            2,
+        )
+
+        # Verify connection was closed
+        mock_conn.close.assert_called_once()
+        mock_conn.wait_closed.assert_awaited_once()
+
+
+@patch("ananta.ssh.establish_ssh_connection", new_callable=AsyncMock)
+async def test_execute_handles_connection_close_timeout(mock_establish_conn):
+    """Test that execute handles connection close timeout gracefully."""
+    mock_conn = AsyncMock()
+    mock_conn.is_closed = MagicMock(return_value=False)
+    mock_conn.close = MagicMock()
+    mock_conn.wait_closed = AsyncMock(side_effect=asyncio.TimeoutError())
+    mock_establish_conn.return_value = mock_conn
+
+    with patch(
+        "ananta.ssh.execute_command", new_callable=AsyncMock
+    ) as mock_exec_cmd:
+        mock_exec_cmd.return_value = "command output"
+        output_queue = AsyncMock(spec=asyncio.Queue)
+
+        # Should not raise, should handle timeout gracefully
+        await execute(
+            "host1",
+            "1.1.1.1",
+            22,
+            "user",
+            None,
+            "cmd",
+            10,
+            80,
+            True,
+            None,
+            output_queue,
+            True,
+            5.0,
+            2,
+        )
+
+        # Verify connection close was attempted
+        mock_conn.close.assert_called_once()
+        mock_conn.wait_closed.assert_awaited_once()
+
+
+@patch("ananta.ssh.establish_ssh_connection", new_callable=AsyncMock)
+async def test_execute_skips_close_if_already_closed(mock_establish_conn):
+    """Test that execute skips closing if connection is already closed."""
+    mock_conn = AsyncMock()
+    mock_conn.is_closed = MagicMock(return_value=True)  # Already closed
+    # close() should not be called if already closed
+    mock_conn.close = MagicMock()
+    mock_establish_conn.return_value = mock_conn
+
+    with patch(
+        "ananta.ssh.execute_command", new_callable=AsyncMock
+    ) as mock_exec_cmd:
+        mock_exec_cmd.return_value = "command output"
+        output_queue = AsyncMock(spec=asyncio.Queue)
+
+        await execute(
+            "host1",
+            "1.1.1.1",
+            22,
+            "user",
+            None,
+            "cmd",
+            10,
+            80,
+            True,
+            None,
+            output_queue,
+            True,
+            5.0,
+            2,
+        )
+
+        # Verify connection close was NOT called (already closed)
+        mock_conn.close.assert_not_called()

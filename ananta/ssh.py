@@ -132,9 +132,6 @@ async def execute_command(
         output = "Host returns bytes that cannot be decoded as UTF-8"
     except asyncssh.Error as error:
         output = f"Error executing command: {error}"
-    finally:
-        if conn:
-            conn.close()
     return output
 
 
@@ -203,6 +200,7 @@ async def execute(
 ) -> None:
     """Execute the SSH command on the remote host and handle the output."""
     remote_width = local_display_width - max_name_length - 3
+    conn = None
 
     try:
         conn = await establish_ssh_connection(
@@ -232,5 +230,12 @@ async def execute(
             f"Error executing command on {host_name}: {error}"
         )
     finally:
+        # Close the connection if it was established
+        if conn and not conn.is_closed():
+            try:
+                conn.close()
+                await asyncio.wait_for(conn.wait_closed(), timeout=2.0)
+            except (asyncio.TimeoutError, Exception):
+                pass
         # Signal end of output once, regardless of success or failure
         await output_queue.put(get_end_marker(host_name, remote_width, color))
