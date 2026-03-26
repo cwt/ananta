@@ -2,5 +2,6 @@ hosts.*
 .coverage
 .mypy_cache/
 .pytest_cache/
+.ruff_cache/
 dist/
 ananta/.mypy_cache/

@@ -1,9 +1,10 @@
-from . import RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, RESET
+import asyncio
+import re
 from itertools import cycle
 from random import shuffle
 from typing import Dict
-import asyncio
-import re
+
+from . import BLUE, CYAN, GREEN, MAGENTA, RED, RESET, YELLOW
 
 COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
 shuffle(COLORS)  # Shuffle colors for randomness

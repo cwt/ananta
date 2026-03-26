@@ -1,19 +1,21 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
+
 from ananta.output import (
-    get_prompt,
-    get_end_marker,
-    adjust_cursor_with_prompt,
-    _get_host_color,  # noqa -- import for potential direct testing if needed
-    RED,
-    GREEN,
-    YELLOW,
     BLUE,
-    MAGENTA,
     CYAN,
+    GREEN,
+    MAGENTA,
+    RED,
     RESET,  # Import colors
+    YELLOW,
+    _get_host_color,  # noqa -- import for potential direct testing if needed
+    adjust_cursor_with_prompt,
+    get_end_marker,
+    get_prompt,
     print_output,
 )
-from unittest.mock import AsyncMock, patch
 
 ALL_COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
 

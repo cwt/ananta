@@ -5,17 +5,17 @@ remote hosts at once via SSH. With Ananta, you can streamline your workflow,
 automate repetitive tasks, and save time and effort.
 """
 
-from . import __version__
-
-from .config import get_hosts
-from .output import print_output  # Used by non-TUI mode
-from .ssh import execute  # Used by non-TUI mode
-from types import ModuleType
-from typing import Dict, List
 import argparse
 import asyncio
 import os
 import sys
+from types import ModuleType
+from typing import Dict, List
+
+from . import __version__
+from .config import get_hosts
+from .output import print_output  # Used by non-TUI mode
+from .ssh import execute  # Used by non-TUI mode
 
 uvloop: ModuleType | None = None
 try:

@@ -1,12 +1,12 @@
-from ananta.ananta import run_cli
-from unittest.mock import AsyncMock, MagicMock, patch
+import builtins
+import importlib
 import os
 import sys
-import importlib
-import builtins
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # ananta.ananta module, to be reloaded in some tests
 import ananta.ananta as ananta_module
+from ananta.ananta import run_cli
 
 
 @patch(

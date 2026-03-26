@@ -1,8 +1,10 @@
-from ananta.ssh import retry_connect
-from unittest.mock import AsyncMock, patch
 import asyncio
+from unittest.mock import AsyncMock, patch
+
 import asyncssh
 import pytest
+
+from ananta.ssh import retry_connect
 
 # Mark all tests in this file as asyncio tests
 pytestmark = pytest.mark.asyncio

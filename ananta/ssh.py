@@ -1,8 +1,11 @@
-from . import LINES
-from ananta.output import get_end_marker
 import asyncio
-import asyncssh
 import os
+
+import asyncssh
+
+from ananta.output import get_end_marker
+
+from . import LINES
 
 
 async def retry_connect(

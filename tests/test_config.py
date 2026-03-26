@@ -1,6 +1,7 @@
-from ananta.config import get_hosts
-from unittest.mock import patch
 import sys
+from unittest.mock import patch
+
+from ananta.config import get_hosts
 
 # Sample CSV content for testing
 HOSTS_CSV_CONTENT = """# This is a comment line

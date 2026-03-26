@@ -1,9 +1,10 @@
-from ananta.ananta import main
-from ananta.ananta import run_cli
-from importlib.metadata import version
-from unittest.mock import patch, AsyncMock, MagicMock
-import pytest
 import unittest
+from importlib.metadata import version
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from ananta.ananta import main, run_cli
 
 # Mark all tests in this file as asyncio tests
 pytestmark = pytest.mark.asyncio

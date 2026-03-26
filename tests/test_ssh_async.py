@@ -1,8 +1,10 @@
-from ananta.ssh import execute, execute_command, stream_command_output
-from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import asyncssh
 import pytest
+
+from ananta.ssh import execute, execute_command, stream_command_output
 
 # Mark all tests in this file as asyncio tests
 pytestmark = pytest.mark.asyncio
@@ -237,7 +239,6 @@ async def test_execute_runtime_error(mock_establish_conn):
 @patch("ananta.ssh.establish_ssh_connection", new_callable=AsyncMock)
 async def test_execute_closes_connection_separate_output(mock_establish_conn):
     """Test that execute properly closes the connection in separate output mode."""
-    from unittest.mock import PropertyMock
 
     mock_conn = AsyncMock()
     # is_closed() is a regular method in asyncssh, not async
@@ -284,9 +285,7 @@ async def test_execute_closes_connection_streaming(mock_establish_conn):
     mock_conn.wait_closed = AsyncMock()
     mock_establish_conn.return_value = mock_conn
 
-    with patch(
-        "ananta.ssh.stream_command_output", new_callable=AsyncMock
-    ) as mock_stream:
+    with patch("ananta.ssh.stream_command_output", new_callable=AsyncMock):
         output_queue = AsyncMock(spec=asyncio.Queue)
 
         await execute(

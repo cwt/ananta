@@ -1,5 +1,6 @@
-from ananta.tui.ansi import _strip_ansi_control_sequences
 import pytest
+
+from ananta.tui.ansi import _strip_ansi_control_sequences
 
 # Mark all tests in this file as TUI tests
 pytestmark = pytest.mark.tui

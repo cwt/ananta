@@ -1,7 +1,9 @@
-from ananta.ssh import stream_command_output
-from unittest.mock import AsyncMock, MagicMock
 import asyncio
+from unittest.mock import AsyncMock
+
 import pytest
+
+from ananta.ssh import stream_command_output
 
 # Mark all tests in this file as asyncio tests
 pytestmark = pytest.mark.asyncio

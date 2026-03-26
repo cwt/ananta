@@ -1,8 +1,10 @@
-from ananta.tui import AnantaUrwidTUI
-from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import urwid
+
+from ananta.tui import AnantaUrwidTUI
 
 # Mark all tests in this file as TUI tests
 pytestmark = pytest.mark.tui

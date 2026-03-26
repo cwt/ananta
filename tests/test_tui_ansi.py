@@ -1,6 +1,7 @@
-from ananta.tui.ansi import ansi_to_urwid_markup, _AnsiState
 import pytest
 import urwid
+
+from ananta.tui.ansi import _AnsiState, ansi_to_urwid_markup
 
 # Mark all tests in this file as TUI tests
 pytestmark = pytest.mark.tui

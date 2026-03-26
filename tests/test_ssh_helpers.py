@@ -1,7 +1,9 @@
-from ananta.ssh import get_ssh_keys
-from unittest.mock import patch
 import os  # For os.path.join
+from unittest.mock import patch
+
 import pytest
+
+from ananta.ssh import get_ssh_keys
 
 
 # Use patch to mock os.path.exists and os.path.expanduser

@@ -1,6 +1,7 @@
-from ananta.tui import ListBoxWithScrollBar
-import urwid
 import pytest
+import urwid
+
+from ananta.tui import ListBoxWithScrollBar
 
 # Mark all tests in this file as TUI tests
 pytestmark = pytest.mark.tui
@@ -15,7 +16,7 @@ class TestListBoxWithScrollBar:
         listbox = ListBoxWithScrollBar(walker)
 
         # Render in a size smaller than the content
-        canvas = listbox.render((80, 10))
+        listbox.render((80, 10))
 
         # Check that the scrollbar is present
         scrollbar_text = listbox._scrollbar.text

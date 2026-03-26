@@ -1,12 +1,13 @@
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from ananta.config import (
-    _load_toml_data,
-    _get_hosts_from_toml,
     _get_hosts_from_csv,
+    _get_hosts_from_toml,
+    _load_toml_data,
     get_hosts,
 )
-import os
 
 # Mark all tests in this file as config tests
 pytestmark = pytest.mark.config
