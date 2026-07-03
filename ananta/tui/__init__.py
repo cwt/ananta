@@ -29,7 +29,7 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
         self._wrapped_widget = urwid.Columns(
             [
                 (self._list_box),
-                ("fixed", 1, urwid.AttrMap(self._scrollbar, "body")),
+                ("given", 1, urwid.AttrMap(self._scrollbar, "body")),
             ],
             box_columns=[0],
         )
@@ -55,7 +55,7 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
             return
 
         focus_pos = self._walker.focus
-        if not 0 <= focus_pos < content_length:
+        if focus_pos is None or not (0 <= focus_pos < content_length):
             focus_pos = content_length - 1
 
         if content_length > 1:
@@ -78,11 +78,13 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
 
         self._scrollbar.set_text("\n".join(bar_chars))
 
-    def keypress(self, size: Tuple[int, int], key: str) -> str | None:
+    def keypress(
+        self, size: Tuple[int, int] | Tuple[int, ...], key: str
+    ) -> str | None:
         """Pass keypresses to the list box."""
         if key == "mouse press":
             return key
-        return self._list_box.keypress(size, key)
+        return self._list_box.keypress(size, key)  # type: ignore
 
     def mouse_event(
         self,
@@ -131,9 +133,12 @@ class RefreshingPile(urwid.Pile):
         self._tui = tui
         super().__init__(widget_list, **kwargs)
 
-    def keypress(self, size: Tuple[int, int], key: str) -> str | None:
+    def keypress(
+        self, size: Tuple[int, int] | Tuple[int, ...] | Tuple[()], key: str
+    ) -> str | None:
         """Handle keypress and then request a redraw."""
-        result = super().keypress(size, key)
+        result = super().keypress(size, key)  # type: ignore
+        self._tui.update_prompt_attribute()
         # After any keypress, handled or not by a child, request a redraw.
         # This is necessary because the main loop's idle handler is disabled.
         if (
@@ -238,14 +243,16 @@ class AnantaUrwidTUI:
         ] = {}
         self._populate_host_palette_definitions()
         self.current_palette = self._build_palette()
-        self.output_walker = urwid.SimpleFocusListWalker([])
+        self.output_walker: urwid.SimpleFocusListWalker = (
+            urwid.SimpleFocusListWalker([])
+        )
         self.output_box = ListBoxWithScrollBar(self.output_walker)
         self.input_field = urwid.Edit(edit_text="")
         self.prompt_widget = urwid.Text(">>> ")
         self.prompt_attr_map = urwid.AttrMap(self.prompt_widget, "input_prompt")
         self.input_wrapper = urwid.Columns(
             [
-                ("fixed", 4, self.prompt_attr_map),
+                ("given", 4, self.prompt_attr_map),
                 self.input_field,
             ],
             dividechars=0,
@@ -256,7 +263,7 @@ class AnantaUrwidTUI:
             ("fixed", 1, urwid.AttrMap(self.input_wrapper, "body")),
         ]
         self.main_pile = RefreshingPile(widgets, tui=self, focus_item=2)
-        self.main_layout = urwid.Frame(body=self.main_pile)
+        self.main_layout: urwid.Frame = urwid.Frame(body=self.main_pile)
         self.main_pile.focus_position = 2
         # --- Event loop and async tasks setup ---
         self.loop: urwid.MainLoop | None = None
@@ -396,6 +403,7 @@ class AnantaUrwidTUI:
         ):
             return
 
+        processed_markup: Any
         if isinstance(message_parts, str):
             processed_markup = ansi_to_urwid_markup(message_parts)
         else:
@@ -562,20 +570,29 @@ class AnantaUrwidTUI:
             )
         )
         self.async_tasks.add(stream_task)
-        stream_task.add_done_callback(self.async_tasks.discard)
+
+        def done_cb(task):
+            self.async_tasks.discard(task)
+            try:
+                exc = task.exception()
+                if exc:
+                    output_queue.put_nowait(
+                        f"Cmd error: {type(exc).__name__} {exc}"
+                    )
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                # Should not raise exception from done callback, but be safe
+                output_queue.put_nowait(f"Cmd error: {type(e).__name__} {e}")
+            output_queue.put_nowait(None)
+
+        stream_task.add_done_callback(done_cb)
 
         try:
             if self.separate_output:
                 collected_output: List[str] = []
                 while not self.is_exiting:
-                    try:
-                        line_data = await asyncio.wait_for(
-                            output_queue.get(), timeout=0.1
-                        )
-                    except asyncio.TimeoutError:
-                        if stream_task.done():
-                            break
-                        continue
+                    line_data = await output_queue.get()
                     if line_data is None:
                         break
                     collected_output.append(line_data)
@@ -589,15 +606,7 @@ class AnantaUrwidTUI:
                         self.add_output(prompt + [""])
             else:
                 while not self.is_exiting:
-                    try:
-                        line_data = await asyncio.wait_for(
-                            output_queue.get(), timeout=0.1
-                        )
-                    except asyncio.TimeoutError:
-                        if stream_task.done():
-                            break
-                        continue
-
+                    line_data = await output_queue.get()
                     if line_data is None:
                         break
 
@@ -644,7 +653,7 @@ class AnantaUrwidTUI:
                 0, self._request_draw
             )
 
-    def handle_input(self, key: str) -> bool | None:
+    def handle_input(self, key: str | Tuple[str, int, int, int]) -> bool | None:
         """Handle user input from the keyboard."""
         if self.is_exiting:
             return True
@@ -758,7 +767,7 @@ class AnantaUrwidTUI:
 
         self.loop = AnantaMainLoop(
             widget=self.main_layout,
-            palette=self.current_palette,  # Use the pre-built palette
+            palette=self.current_palette,  # type: ignore
             event_loop=urwid_event_loop,
             unhandled_input=self.handle_input,
         )
@@ -770,7 +779,7 @@ class AnantaUrwidTUI:
             self.input_wrapper.focus_col = 1
 
         try:
-            self.loop.screen.set_terminal_properties(colors=256)
+            self.loop.screen.set_terminal_properties(colors=256)  # type: ignore
             self.loop.screen.set_mouse_tracking(True)
         except Exception:
             pass

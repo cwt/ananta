@@ -84,7 +84,12 @@ def _get_hosts_from_toml(
         )
         return [], 0
 
-    defaults: Dict[str, Any] = data.get("default", {})
+    defaults = data.get("default", {})
+    if not isinstance(defaults, dict):
+        print(
+            f"Warning: Skipping non-dictionary 'default' section in '{toml_file_path}'."
+        )
+        defaults = {}
 
     # Validate and set default values
     try:
@@ -95,8 +100,17 @@ def _get_hosts_from_toml(
 
     default_username: str | None = defaults.get("username")
     default_key_path: str = defaults.get("key_path", "#")
+
     # default tags won't be overridden but got appended by host-specific tags
     default_tags: List[str] = defaults.get("tags", [])
+    if not isinstance(default_tags, list) or not all(
+        isinstance(tag, str) for tag in default_tags
+    ):
+        print(
+            f"Warning: Invalid default 'tags' in '{toml_file_path}' "
+            "(must be a list of strings). Ignoring default tags."
+        )
+        default_tags = []
 
     try:
         default_timeout = _validate_timeout(float(defaults.get("timeout", 5.0)))

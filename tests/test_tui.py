@@ -247,9 +247,7 @@ async def test_run_command_interleaved_output_and_empty_lines(mock_tui):
 @pytest.mark.asyncio
 async def test_run_command_on_host_raises_error(mock_tui):
     """
-    Tests that an error during command execution is caught.
-    Note: The current implementation catches and swallows the error without display.
-    This test verifies that behavior.
+    Tests that an error during command execution is caught and displayed.
     """
     mock_tui.asyncio_loop = asyncio.get_running_loop()
     mock_tui.add_output = MagicMock()
@@ -261,10 +259,9 @@ async def test_run_command_on_host_raises_error(mock_tui):
         # The run_command_on_host method should not re-raise the exception
         await mock_tui.run_command_on_host("host-1", MagicMock(), "cmd")
 
-    # Check that no command error message was added, because the current
-    # implementation swallows the exception in the 'finally' block.
+    # Verify that the command error is now correctly captured and displayed.
     markup_calls = [c.args[0] for c in mock_tui.add_output.call_args_list]
-    assert not any("Cmd error" in str(m) for m in markup_calls)
+    assert any("Cmd error" in str(m) for m in markup_calls)
 
 
 def test_handle_input(mock_tui):

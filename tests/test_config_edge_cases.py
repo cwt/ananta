@@ -230,3 +230,46 @@ def test_get_hosts_from_csv_file_not_found(capsys):
     assert hosts == []
     assert max_len == 0
     assert "Error: CSV hosts file not found" in captured.out
+
+
+def test_get_hosts_from_toml_invalid_defaults_non_dict(tmp_path, capsys):
+    """
+    Test that _get_hosts_from_toml handles a non-dictionary 'default' section gracefully.
+    """
+    toml_with_invalid_default = tmp_path / "invalid_default.toml"
+    toml_with_invalid_default.write_text("""
+default = "not-a-dictionary"
+[host1]
+ip = "1.1.1.1"
+username = "user1"
+""")
+
+    hosts, max_len = _get_hosts_from_toml(str(toml_with_invalid_default), None)
+    captured = capsys.readouterr()
+
+    assert len(hosts) == 1
+    assert max_len == 5
+    assert "Skipping non-dictionary 'default' section" in captured.out
+
+
+def test_get_hosts_from_toml_invalid_default_tags(tmp_path, capsys):
+    """
+    Test that _get_hosts_from_toml handles non-list 'tags' in 'default' gracefully.
+    """
+    toml_with_invalid_default_tags = tmp_path / "invalid_default_tags.toml"
+    toml_with_invalid_default_tags.write_text("""
+[default]
+tags = "not-a-list"
+[host1]
+ip = "1.1.1.1"
+username = "user1"
+""")
+
+    hosts, max_len = _get_hosts_from_toml(
+        str(toml_with_invalid_default_tags), None
+    )
+    captured = capsys.readouterr()
+
+    assert len(hosts) == 1
+    assert max_len == 5
+    assert "Invalid default 'tags'" in captured.out

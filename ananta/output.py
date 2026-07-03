@@ -89,20 +89,27 @@ async def print_output(
     """Print the output from the remote host with the appropriate prompt."""
     prompt = get_prompt(host_name, max_name_length, color)
 
-    while True:
-        output = await output_queue.get()
-        if output is None:
-            break
-        if separate_output:
-            # Synchronize printing of the entire output
-            async with print_lock:
-                for line in output.splitlines():
+    if separate_output:
+        chunks = []
+        while True:
+            output = await output_queue.get()
+            if output is None:
+                break
+            chunks.append(output)
+
+        async with print_lock:
+            for chunk in chunks:
+                for line in chunk.splitlines():
                     adjusted_line = adjust_cursor_with_prompt(
                         line, prompt, allow_cursor_control, max_name_length
                     )
                     if allow_empty_line or allow_cursor_control or line.strip():
                         print(f"{prompt}{adjusted_line}{RESET}")
-        else:
+    else:
+        while True:
+            output = await output_queue.get()
+            if output is None:
+                break
             for line in output.splitlines():
                 adjusted_line = adjust_cursor_with_prompt(
                     line, prompt, allow_cursor_control, max_name_length
