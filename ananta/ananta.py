@@ -213,7 +213,7 @@ def run_cli() -> None:
     )
     args: argparse.Namespace = parser.parse_args()
 
-    if uvloop:
+    if uvloop and not (args.tui or args.tui_light):
         # To maintain compatibility with tests while addressing deprecation
         # Suppress the deprecation warning for the necessary function call
         import warnings
