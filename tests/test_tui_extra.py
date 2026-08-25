@@ -110,7 +110,8 @@ async def test_run_command_on_host_cancelled(mock_tui):
         inner_task_mock.task.cancel()
 
         await asyncio.sleep(0)
-        await run_host_task
+        with pytest.raises(asyncio.CancelledError):
+            await run_host_task
 
     assert any(
         "Command cancelled/interrupted" in str(call.args[0].get_text())

@@ -99,15 +99,10 @@ async def establish_ssh_connection(
     max_retries: int = 2,
 ) -> asyncssh.SSHClientConnection:
     """Establish an SSH connection to the remote host."""
-    try:
-        client_keys = get_ssh_keys(key_path, default_key)
-        return await retry_connect(
-            ip_address, ssh_port, username, client_keys, timeout, max_retries
-        )
-    except Exception as error:
-        raise ConnectionError(
-            f"Error connecting to {ip_address}: {error}"
-        ) from error
+    client_keys = get_ssh_keys(key_path, default_key)
+    return await retry_connect(
+        ip_address, ssh_port, username, client_keys, timeout, max_retries
+    )
 
 
 async def execute_command(
@@ -174,11 +169,11 @@ async def stream_command_output(
     finally:
         if process:
             try:
-                process.terminate()  # type: ignore [func-returns-value]
+                process.terminate()
                 await asyncio.wait_for(process.wait(), timeout=5.0)
             except asyncio.TimeoutError:
                 # If the process doesn't terminate gracefully, force close
-                process.close()  # type: ignore [func-returns-value]
+                process.close()
                 try:
                     await asyncio.wait_for(process.wait(), timeout=2.0)
                 except asyncio.TimeoutError:
@@ -193,7 +188,7 @@ async def _close_ssh_connection(
         try:
             conn.close()
             await asyncio.wait_for(conn.wait_closed(), timeout=2.0)
-        except (asyncio.TimeoutError, Exception):
+        except asyncio.TimeoutError:
             pass
 
 

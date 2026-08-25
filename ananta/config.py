@@ -170,7 +170,8 @@ def _get_hosts_from_toml(
 
         try:
             port_str = host_config.get("port", default_port)
-            ssh_port = _validate_port(int(port_str))
+            ssh_port = int(port_str)
+            ssh_port = _validate_port(ssh_port)
             username = host_config.get("username", default_username)
             if not username or not isinstance(username, str):
                 print(
@@ -225,11 +226,17 @@ def _get_hosts_from_toml(
                         retries,
                     )
                 )
-        except ValueError:
-            print(
-                f"Hosts file (TOML) '{toml_file_path}': Error parsing port for "
-                f"host '{host_name}'. Port must be an integer. Skipping!"
-            )
+        except ValueError as error:
+            if "Port" in str(error):
+                print(
+                    f"Hosts file (TOML) '{toml_file_path}': Error parsing port for "
+                    f"host '{host_name}': {error}. Skipping!"
+                )
+            else:
+                print(
+                    f"Hosts file (TOML) '{toml_file_path}': Error parsing port for "
+                    f"host '{host_name}'. Port must be an integer. Skipping!"
+                )
         except Exception as e:
             print(
                 f"Hosts file (TOML) '{toml_file_path}': Unexpected error processing "

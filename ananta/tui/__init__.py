@@ -639,6 +639,7 @@ class AnantaUrwidTUI:
                         prompt
                         + [("status_neutral", "Command cancelled/interrupted.")]
                     )
+                raise
             except Exception:
                 pass
 
