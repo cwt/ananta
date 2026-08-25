@@ -85,16 +85,16 @@ def test_get_end_marker_with_color():
         ("Line with cursor up \x1b[1A", "Line with cursor up "),
         # Screen clear removed
         ("Line with clear screen \x1b[2J", "Line with clear screen "),
-        # Erase to beginning gets prompt prepended after jump
-        (
-            "Text\x1b[1KPartial erase",
-            "Text\x1b[1K\x1b[s\x1b[G[prompt] \x1b[uPartial erase",
-        ),
-        # Erase line gets prompt prepended after jump
-        (
-            "Text\x1b[2KFull erase",
-            "Text\x1b[2K\x1b[s\x1b[G[prompt] \x1b[uFull erase",
-        ),
+        # Cursor home removed
+        ("Line with home \x1b[H", "Line with home "),
+        # Erase line removed
+        ("Line with erase \x1b[K", "Line with erase "),
+        ("Line with erase0 \x1b[0K", "Line with erase0 "),
+        # HVP removed
+        ("Line with hvp \x1b[f", "Line with hvp "),
+        # Erase codes are stripped entirely when cursor control disabled
+        ("Text\x1b[1KPartial erase", "TextPartial erase"),
+        ("Text\x1b[2KFull erase", "TextFull erase"),
     ],
 )
 def test_adjust_cursor_no_control(line_input, expected_output_no_control):

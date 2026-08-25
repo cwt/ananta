@@ -19,11 +19,12 @@ HOST_COLOR: Dict[str, str] = {}  # Dictionary to store host colors
 
 # Pattern to match common cursor control and screen clear ANSI codes
 ansi_cursor_control = re.compile(
-    r"\x1b\[(\d+)?[ABEFCDG]|"  # cursor movement
+    r"\x1b\[(\d+)?[ABEFCDGHf]|"  # cursor movement + home(H) + HVP(f)
     r"\x1b\[\d+;\d+[HF]|"  # cursor position
     r"\x1b\[[?]\d+[hl]|"  # cursor visibility
     r"\x1b\[[sSu]|"  # cursor save/restore
     r"\x1b\[\d*J"  # screen clear
+    r"|\x1b\[\d*K"  # erase line (K not in movement class)
 )
 
 # Pattern to match cursor movement to a specific column (\x1b[nG)
@@ -47,11 +48,11 @@ def adjust_cursor_with_prompt(
 
         line = ansi_cursor_move_to_column.sub(adjust_cursor_movement, line)
 
-    # If erase to the beginning of line, jump to col 0, add prompt, then return
-    line = line.replace("\x1b[1K", f"\x1b[1K\x1b[s\x1b[G{prompt}\x1b[u")
+        # If erase to the beginning of line, jump to col 0, add prompt, then return
+        line = line.replace("\x1b[1K", f"\x1b[1K\x1b[s\x1b[G{prompt}\x1b[u")
 
-    # If erase the whole line, jump to col 0, add prompt, then return
-    line = line.replace("\x1b[2K", f"\x1b[2K\x1b[s\x1b[G{prompt}\x1b[u")
+        # If erase the whole line, jump to col 0, add prompt, then return
+        line = line.replace("\x1b[2K", f"\x1b[2K\x1b[s\x1b[G{prompt}\x1b[u")
 
     return line.rstrip()
 
