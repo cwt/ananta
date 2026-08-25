@@ -223,21 +223,29 @@ async def test_run_command_interleaved_output_and_empty_lines(mock_tui):
     mock_tui.allow_empty_line = True
     mock_tui.add_output = MagicMock()
 
-    async def feed_queue(q):
-        await q.put("line 1")
-        await q.put("")  # Empty line
-        await q.put(None)
+    captured_queue: asyncio.Queue | None = None
 
-    queue = mock_tui.output_queues["host-1"]
-    feeder_task = mock_tui.asyncio_loop.create_task(feed_queue(queue))
+    async def capture_queue(conn, cmd, width, queue, color):
+        nonlocal captured_queue
+        captured_queue = queue
+        # Return an empty coroutine so the mock doesn't block
+        return
 
     with patch(
-        "ananta.tui.stream_command_output", new_callable=AsyncMock
+        "ananta.tui.stream_command_output", side_effect=capture_queue
     ) as mock_stream:
-        await mock_tui.run_command_on_host("host-1", MagicMock(), "cmd")
+        run_task = mock_tui.asyncio_loop.create_task(
+            mock_tui.run_command_on_host("host-1", MagicMock(), "cmd")
+        )
+        # Wait until the mock is called and queue is captured
+        while captured_queue is None:
+            await asyncio.sleep(0)
+        await captured_queue.put("line 1")
+        await captured_queue.put("")  # Empty line
+        await captured_queue.put(None)
+        await run_task
         mock_stream.assert_awaited_once()
 
-    await feeder_task
     # add_output called for "line 1" and for the empty line
     assert mock_tui.add_output.call_count == 2
     second_call_arg = mock_tui.add_output.call_args_list[1].args[0]

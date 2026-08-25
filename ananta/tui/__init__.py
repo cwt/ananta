@@ -557,7 +557,7 @@ class AnantaUrwidTUI:
             max(cols - self.max_name_length - 3, 10) - 1
         )  # Decrease 1 column for the scrollbar.
 
-        output_queue: asyncio.Queue[str | None] = self.output_queues[host_name]
+        output_queue: asyncio.Queue[str | None] = asyncio.Queue()
 
         stream_task = asyncio.create_task(
             stream_command_output(

@@ -65,22 +65,24 @@ async def test_run_command_separate_output(mock_tui):
     mock_tui.separate_output = True
     host_name = "host-1"
     conn = mock_tui.connections[host_name]
-    queue = mock_tui.output_queues[host_name]
 
-    await queue.put("line 1")
-    await queue.put(None)
+    captured_queue: asyncio.Queue | None = None
 
-    # --- FIX START ---
-    # Patch the source of the coroutine, not the task scheduler.
-    # This ensures the coroutine is properly awaited inside the task.
+    async def capture_queue(conn, cmd, width, queue, color):
+        nonlocal captured_queue
+        captured_queue = queue
+
     with patch(
-        "ananta.tui.stream_command_output", new_callable=AsyncMock
+        "ananta.tui.stream_command_output", side_effect=capture_queue
     ) as mock_stream_func:
         await mock_tui.run_command_on_host(host_name, conn, "test command")
-        # The task is created and runs in the background, awaiting our mock.
-        await asyncio.sleep(0)  # Yield control to allow the task to run.
+        await asyncio.sleep(0)
         mock_stream_func.assert_called_once()
-    # --- FIX END ---
+        assert captured_queue is not None
+        await captured_queue.put("line 1")
+        await captured_queue.put(None)
+        await asyncio.sleep(0)
+    mock_stream_func.assert_called_once()
 
 
 @pytest.mark.asyncio
