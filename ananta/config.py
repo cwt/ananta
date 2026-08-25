@@ -59,19 +59,26 @@ def _deduplicate_hosts(
     hosts: List[Tuple[str, str, int, str, str, float, int]],
 ) -> List[Tuple[str, str, int, str, str, float, int]]:
     """Detect and rename duplicate host names with a numeric suffix."""
-    seen: Dict[str, int] = {}
+    seen_counts: Dict[str, int] = {}
+    assigned_names: Set[str] = set()
     result: List[Tuple[str, str, int, str, str, float, int]] = []
     for host in hosts:
         name = host[0]
-        if name in seen:
-            seen[name] += 1
-            new_name = f"{name}-{seen[name]}"
+        if name in assigned_names or name in seen_counts:
+            count = seen_counts.get(name, 0) + 1
+            new_name = f"{name}-{count}"
+            while new_name in assigned_names:
+                count += 1
+                new_name = f"{name}-{count}"
+            seen_counts[name] = count
+            assigned_names.add(new_name)
             print(
                 f"Warning: Duplicate host name '{name}' renamed to '{new_name}'"
             )
             result.append((new_name, *host[1:]))
         else:
-            seen[name] = 0
+            seen_counts[name] = 0
+            assigned_names.add(name)
             result.append(host)
     return result
 
@@ -206,14 +213,12 @@ def _get_hosts_from_toml(
                     f"Warning: Host '{host_name}' in '{toml_file_path}' has "
                     "invalid 'tags' (must be a list of strings). Treating as no tags."
                 )
-                current_host_tags_set: Set[str] = set()
-            else:
-                # Append default tags to host-specific tags
-                current_host_tags_set = set(
-                    default_tags + current_host_tags_list
-                )
-            if not active_tags_filter or active_tags_filter.intersection(
-                current_host_tags_set
+                current_host_tags_list = []
+
+            if (
+                not active_tags_filter
+                or not active_tags_filter.isdisjoint(default_tags)
+                or not active_tags_filter.isdisjoint(current_host_tags_list)
             ):
                 hosts_to_execute.append(
                     (
@@ -292,13 +297,11 @@ def _get_hosts_from_csv(
                     continue
                 # IndexError for key_path or tags_in_csv_str is avoided by conditional access
 
-                current_host_tags_set: Set[str] = (
-                    set(tags_in_csv_str.split(":"))
-                    if tags_in_csv_str
-                    else set()
+                tags_list = (
+                    tags_in_csv_str.split(":") if tags_in_csv_str else []
                 )
-                if not active_tags_filter or active_tags_filter.intersection(
-                    current_host_tags_set
+                if not active_tags_filter or not active_tags_filter.isdisjoint(
+                    tags_list
                 ):
                     hosts_to_execute.append(
                         (

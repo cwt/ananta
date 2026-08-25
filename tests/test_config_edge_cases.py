@@ -312,3 +312,24 @@ def test_get_hosts_from_toml_duplicate_names(tmp_path, capsys):
     assert hosts[0][0] == "host-x"
     assert hosts[1][0] == "host-y"
     assert "Duplicate" not in captured.out
+
+
+def test_get_hosts_from_csv_duplicate_names_with_existing_suffix(
+    tmp_path, capsys
+):
+    """Test that duplicates avoid colliding with names that already exist with suffixes."""
+    csv_file = tmp_path / "hosts.csv"
+    csv_file.write_text(
+        "name,ip,port,user\n"
+        "host-a,10.0.0.1,22,user1\n"
+        "host-a-1,10.0.0.2,22,user2\n"
+        "host-a,10.0.0.3,22,user3\n"
+    )
+    hosts, max_len = _get_hosts_from_csv(str(csv_file), None)
+    captured = capsys.readouterr()
+
+    assert len(hosts) == 3
+    assert hosts[0][0] == "host-a"
+    assert hosts[1][0] == "host-a-1"
+    assert hosts[2][0] == "host-a-2"
+    assert "Duplicate host name 'host-a' renamed to 'host-a-2'" in captured.out
