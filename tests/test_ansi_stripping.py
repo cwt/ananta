@@ -20,6 +20,19 @@ pytestmark = pytest.mark.tui
             "line1\rline2",
             "line2",
         ),  # Only the part after the last carriage return is kept
+        # C0 control characters are stripped
+        ("bell\x07here", "bellhere"),
+        ("a\x0bb", "ab"),
+        # C1 control characters are stripped
+        ("esc\x9bhalf", "eschalf"),
+        # DCS sequences are stripped
+        ("\x1bP1;2q\x1b\\", ""),
+        # APC sequences are stripped
+        ("\x1b_info\x1b\\", ""),
+        # PM sequences are stripped
+        ("\x1b^secret\x1b\\", ""),
+        # Mixed: SGR kept, control stripped
+        ("\x1b[31mred\x1b[0m\x07clean", "\x1b[31mred\x1b[0mclean"),
     ],
 )
 def test_strip_ansi_control_sequences(input_str, expected_output):

@@ -70,11 +70,11 @@ class _AnsiState:
 
 
 _ANSI_CONTROL_SEQUENCES = re.compile(
-    r"[\x00-\x08\x0B\x0C\x0E-\x1A\x1C-\x1F]"  # C0 control characters
-    r"[\x80-\x9F]"  # C1 control characters
-    r"\x1bP[^\x1b]*\x1b\\"  # DCS (Device Control String)
-    r"\x1b_[^\x1b]*\x1b\\"  # APC (Application Program Command)
-    r"\x1b\^[^\x1b]*\x1b\\"  # PM (Privacy Message)
+    r"(?:[\x00-\x08\x0B\x0C\x0E-\x1A\x1C-\x1F]"
+    r"|[\x80-\x9F]"
+    r"|\x1bP[^\x1b]*\x1b\\"
+    r"|\x1b_[^\x1b]*\x1b\\"
+    r"|\x1b\^[^\x1b]*\x1b\\)"
 )
 _OSC_CONTROL_SEQUENCES = re.compile(
     r"\x1b\][^\x07\x1b]*(\x07|\x1b\\)", re.DOTALL
