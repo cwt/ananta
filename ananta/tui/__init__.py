@@ -29,6 +29,7 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
         self._walker = walker
         self._list_box = urwid.ListBox(self._walker)
         self._scrollbar = urwid.Text("", align="left")
+        self._last_scrollbar_state: Tuple[int, int, int] | None = None
         self._wrapped_widget = urwid.Columns(
             [
                 (self._list_box),
@@ -49,12 +50,16 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
         """Update the scrollbar's appearance based on the list box's state."""
         max_height = size[1]
         if max_height <= 0 or not self._walker:
-            self._scrollbar.set_text("")
+            if self._last_scrollbar_state != (0, 0, 0):
+                self._scrollbar.set_text("")
+                self._last_scrollbar_state = (0, 0, 0)
             return
 
         content_length = len(self._walker)
         if content_length <= max_height:
-            self._scrollbar.set_text("")  # No scrollbar needed
+            if self._last_scrollbar_state != (0, 0, max_height):
+                self._scrollbar.set_text("")  # No scrollbar needed
+                self._last_scrollbar_state = (0, 0, max_height)
             return
 
         focus_pos = self._walker.focus
@@ -71,6 +76,11 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
 
         scrollable_space = max_height - handle_size
         handle_top = round(scroll_ratio * scrollable_space)
+
+        current_state = (handle_top, handle_size, max_height)
+        if self._last_scrollbar_state == current_state:
+            return
+        self._last_scrollbar_state = current_state
 
         bar_chars = []
         for i in range(max_height):
@@ -239,6 +249,8 @@ class AnantaUrwidTUI:
             host[0]: asyncio.Queue() for host in self.hosts
         }
         self._ansi_states: Dict[str, _AnsiState] = {}
+        self._host_attr_names: Dict[str, str] = {}
+        self._host_prompts: Dict[str, List[Tuple[str, str]]] = {}
         # --- Urwid setup ---
         self.host_palette_definitions: Dict[
             str, Tuple[str, str, str, None, None, None]
@@ -307,14 +319,20 @@ class AnantaUrwidTUI:
             )
 
     def _get_host_attr_name(self, host_name: str) -> str:
-        return f"host_{host_name.lower().replace('-', '_').replace(' ', '_').replace('.', '_')}"
+        if host_name not in self._host_attr_names:
+            self._host_attr_names[host_name] = (
+                f"host_{host_name.lower().replace('-', '_').replace(' ', '_').replace('.', '_')}"
+            )
+        return self._host_attr_names[host_name]
 
     def format_host_prompt(
         self, host_name: str, max_name_length: int
     ) -> List[Tuple[str, str]]:
-        attr_name = self._get_host_attr_name(host_name)
-        padded_host = host_name.rjust(max_name_length)
-        return [(attr_name, f"[{padded_host}] ")]
+        if host_name not in self._host_prompts:
+            attr_name = self._get_host_attr_name(host_name)
+            padded_host = host_name.rjust(max_name_length)
+            self._host_prompts[host_name] = [(attr_name, f"[{padded_host}] ")]
+        return list(self._host_prompts[host_name])
 
     def _populate_host_palette_definitions(self) -> None:
         """Pre-populates host-specific palette entries."""
@@ -358,27 +376,16 @@ class AnantaUrwidTUI:
     def _build_palette(self) -> List[Tuple[str | None, ...]]:
         """Build the complete palette for Urwid, including default and host-specific styles."""
         palette = list(self.DEFAULT_PALETTE)
-
-        # Add pre-defined host styles
-        for host_entry in self.host_palette_definitions.values():
-            # Simple check to avoid adding if somehow already present by name
-            # More robust deduplication happens next anyway
-            if not any(
-                entry[0] == host_entry[0]
-                for entry in palette
-                if entry and entry[0]
-            ):
-                palette.append(host_entry)
+        palette.extend(self.host_palette_definitions.values())
 
         seen_names = set()
         unique_palette: List[Tuple[str | None, ...]] = []
-        for entry in reversed(
-            palette
-        ):  # Iterate from the end to keep last definition of a name
+        for entry in reversed(palette):
             if isinstance(entry, tuple) and entry[0] is not None:
                 if entry[0] not in seen_names:
-                    unique_palette.insert(0, entry)
+                    unique_palette.append(entry)
                     seen_names.add(entry[0])
+        unique_palette.reverse()
         return unique_palette
 
     def add_output(
