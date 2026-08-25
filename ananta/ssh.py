@@ -244,3 +244,4 @@ async def execute(
         await _close_ssh_connection(conn)
         # Signal end of output once, regardless of success or failure
         await output_queue.put(get_end_marker(host_name, remote_width, color))
+        await output_queue.put(None)
