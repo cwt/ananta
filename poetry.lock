@@ -1111,14 +1111,14 @@ files = [
 
 [[package]]
 name = "urwid"
-version = "4.0.11"
+version = "4.0.13"
 description = "A full-featured console (xterm et al.) user interface library"
 optional = false
 python-versions = ">=3.9.0"
 groups = ["main"]
 files = [
-    {file = "urwid-4.0.11-py3-none-any.whl", hash = "sha256:62a0e3f9318c8544b6f0c6ff5ab06e07c5f1694cd82aa97137e096a43008b409"},
-    {file = "urwid-4.0.11.tar.gz", hash = "sha256:478efc158aa2713d9ba10ba3a66f383d9e7e49484d4325465b5749e8e0e99b62"},
+    {file = "urwid-4.0.13-py3-none-any.whl", hash = "sha256:bee62404d24d06d9ffa74d834b03d5ba53c419a135b36831775fc69c6246e6fa"},
+    {file = "urwid-4.0.13.tar.gz", hash = "sha256:23afb15197b9e3b656b8c55bb3e18d50463c34db1982ec81ef5034525bea6c76"},
 ]
 
 [package.dependencies]

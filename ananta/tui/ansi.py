@@ -1,3 +1,4 @@
+import functools
 import re
 from dataclasses import dataclass, field
 from typing import List, Tuple
@@ -6,6 +7,54 @@ import urwid
 
 _DEFAULT_FG_COLOR = "default"  # Urwid's default color string for foreground
 _DEFAULT_BG_COLOR = "default"  # Urwid's default color string for background
+
+# Styles that Urwid's AttrSpec parses from the foreground string
+_URWID_SUPPORTED_STYLES = {
+    "bold",
+    "underline",
+    "standout",
+    "italics",
+    "blink",
+    "strikethrough",
+}
+
+
+@functools.lru_cache(maxsize=256)
+def _build_attr_spec(
+    fg: str, bg: str, styles: Tuple[str, ...]
+) -> urwid.AttrSpec:
+    """Create and cache an Urwid AttrSpec from color and style specifications."""
+    current_fg_color = fg
+    current_bg_color = bg
+
+    active_style_parts = [s for s in styles if s in _URWID_SUPPORTED_STYLES]
+
+    # Handle 'reverse' by swapping fg and bg colors
+    if "reverse" in styles:
+        current_fg_color, current_bg_color = (
+            current_bg_color,
+            current_fg_color,
+        )
+
+    # Handle 'conceal' by making fg the same as bg
+    if "conceal" in styles:
+        current_fg_color = current_bg_color
+
+    # Construct the foreground specification string
+    fg_spec_parts = []
+    if active_style_parts:
+        fg_spec_parts.extend(sorted(active_style_parts))
+
+    if current_fg_color != _DEFAULT_FG_COLOR or not fg_spec_parts:
+        fg_spec_parts.append(current_fg_color)
+
+    final_fg_spec = ",".join(fg_spec_parts)
+    if not final_fg_spec:
+        final_fg_spec = _DEFAULT_FG_COLOR
+
+    final_bg_spec = current_bg_color
+
+    return urwid.AttrSpec(final_fg_spec, final_bg_spec)
 
 
 @dataclass
@@ -24,49 +73,8 @@ class _AnsiState:
 
     def get_attr_spec(self) -> urwid.AttrSpec:
         """Create an Urwid AttrSpec from the current state."""
-        current_fg_color = self.fg
-        current_bg_color = self.bg
-
-        # Styles that Urwid's AttrSpec parses from the foreground string
-        urwid_supported_styles = {
-            "bold",
-            "underline",
-            "standout",
-            "italics",
-            "blink",
-            "strikethrough",
-        }
-
-        active_style_parts = [
-            s for s in self.styles if s in urwid_supported_styles
-        ]
-
-        # Handle 'reverse' by swapping fg and bg colors
-        if "reverse" in self.styles:
-            current_fg_color, current_bg_color = (
-                current_bg_color,
-                current_fg_color,
-            )
-
-        # Handle 'conceal' by making fg the same as bg
-        if "conceal" in self.styles:
-            current_fg_color = current_bg_color
-
-        # Construct the foreground specification string
-        fg_spec_parts = []
-        if active_style_parts:
-            fg_spec_parts.extend(sorted(active_style_parts))
-
-        if current_fg_color != _DEFAULT_FG_COLOR or not fg_spec_parts:
-            fg_spec_parts.append(current_fg_color)
-
-        final_fg_spec = ",".join(fg_spec_parts)
-        if not final_fg_spec:
-            final_fg_spec = _DEFAULT_FG_COLOR
-
-        final_bg_spec = current_bg_color
-
-        return urwid.AttrSpec(final_fg_spec, final_bg_spec)
+        styles_tuple = tuple(self.styles) if self.styles else ()
+        return _build_attr_spec(self.fg, self.bg, styles_tuple)
 
 
 _ANSI_CONTROL_SEQUENCES = re.compile(
@@ -79,7 +87,7 @@ _ANSI_CONTROL_SEQUENCES = re.compile(
 _OSC_CONTROL_SEQUENCES = re.compile(
     r"\x1b\][^\x07\x1b]*(\x07|\x1b\\)", re.DOTALL
 )
-_CSI_CONTROL_SEQUENCES = re.compile(r"(\x1b\[[0-9;?]*)([A-Za-z])")
+_NON_SGR_CSI_SEQUENCES = re.compile(r"\x1b\[[0-9;?]*[A-LN-Za-ln-z]")
 
 
 def _strip_ansi_control_sequences(text: str) -> str:
@@ -89,15 +97,9 @@ def _strip_ansi_control_sequences(text: str) -> str:
     Importantly, \x1b (ESC) is NOT stripped by this function if it's part of an SGR.
     """
     text = _ANSI_CONTROL_SEQUENCES.sub("", text)
-    text = _OSC_CONTROL_SEQUENCES.sub("", text)
-
-    # Strip CSI (Control Sequence Introducer) sequences that are NOT SGR (ending in 'm')
-    def csi_stripper(match: re.Match) -> str:
-        if match.group(2) != "m":
-            return ""
-        return match.group(0)
-
-    text = _CSI_CONTROL_SEQUENCES.sub(csi_stripper, text)
+    if "\x1b" in text:
+        text = _OSC_CONTROL_SEQUENCES.sub("", text)
+        text = _NON_SGR_CSI_SEQUENCES.sub("", text)
 
     if "\r" in text:
         if not text.endswith("\r") and not text.endswith("\r\n"):
@@ -110,6 +112,9 @@ def _expand_tabs_with_col_tracking(
     text: str, starting_col: int, tab_width: int = 8  # default tab width
 ) -> tuple[str, int]:
     """Expands tabs in a string to spaces, tracking column position."""
+    if "\t" not in text:
+        return text, starting_col + len(text)
+
     expanded_text = []
     current_col = starting_col
     for char in text:
@@ -298,8 +303,4 @@ def ansi_to_urwid_markup(
         if expanded_segment:
             markup.append((state.get_attr_spec(), expanded_segment))
 
-    return [
-        part
-        for part in markup
-        if isinstance(part, str) or (isinstance(part, tuple) and part[1])
-    ], state
+    return markup, state
