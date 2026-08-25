@@ -9,8 +9,9 @@ from . import BLUE, CYAN, GREEN, MAGENTA, RED, RESET, YELLOW
 
 def _make_color_cycle(colors: list[str]) -> cycle:
     """Shuffle a list of color strings and return a cycle iterator."""
-    shuffle(colors)
-    return cycle(colors)
+    shuffled = list(colors)
+    shuffle(shuffled)
+    return cycle(shuffled)
 
 
 COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
@@ -35,24 +36,29 @@ def adjust_cursor_with_prompt(
     line: str, prompt: str, allow_cursor_control: bool, max_name_length: int
 ) -> str:
     """Adjust the cursor control codes to display correctly with Ananta prompt."""
+    if "\x1b" not in line:
+        return line.rstrip()
+
     if not allow_cursor_control:
         line = ansi_cursor_control.sub("", line)
     else:
         # Adjust \x1b[nG to account for prompt length
-        def adjust_cursor_movement(match):
-            n = (
-                int(match.group(1)) if match.group(1) else 1
-            )  # Default to 1 if no number
-            n += max_name_length + 3  # Add prompt length ("[max_name_length] ")
+        prompt_offset = max_name_length + 3
+
+        def adjust_cursor_movement(match: re.Match) -> str:
+            n = int(match.group(1)) if match.group(1) else 1
+            n += prompt_offset
             return f"\x1b[{n}G"
 
         line = ansi_cursor_move_to_column.sub(adjust_cursor_movement, line)
 
         # If erase to the beginning of line, jump to col 0, add prompt, then return
-        line = line.replace("\x1b[1K", f"\x1b[1K\x1b[s\x1b[G{prompt}\x1b[u")
+        if "\x1b[1K" in line:
+            line = line.replace("\x1b[1K", f"\x1b[1K\x1b[s\x1b[G{prompt}\x1b[u")
 
         # If erase the whole line, jump to col 0, add prompt, then return
-        line = line.replace("\x1b[2K", f"\x1b[2K\x1b[s\x1b[G{prompt}\x1b[u")
+        if "\x1b[2K" in line:
+            line = line.replace("\x1b[2K", f"\x1b[2K\x1b[s\x1b[G{prompt}\x1b[u")
 
     return line.rstrip()
 
@@ -114,11 +120,14 @@ async def print_output(
             output = await output_queue.get()
             if output is None:
                 break
+            lines_to_print = []
             for line in output.splitlines():
                 adjusted_line = adjust_cursor_with_prompt(
                     line, prompt, allow_cursor_control, max_name_length
                 )
                 if allow_empty_line or allow_cursor_control or line.strip():
-                    # Synchronize printing of a single line
-                    async with print_lock:
-                        print(f"{prompt}{adjusted_line}{RESET}")
+                    lines_to_print.append(f"{prompt}{adjusted_line}{RESET}")
+            if lines_to_print:
+                async with print_lock:
+                    for formatted_line in lines_to_print:
+                        print(formatted_line)
