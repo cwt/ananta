@@ -273,3 +273,42 @@ username = "user1"
     assert len(hosts) == 1
     assert max_len == 5
     assert "Invalid default 'tags'" in captured.out
+
+
+def test_get_hosts_from_csv_duplicate_names(tmp_path, capsys):
+    """Test that duplicate host names in CSV are detected and renamed."""
+    csv_file = tmp_path / "hosts.csv"
+    csv_file.write_text(
+        "name,ip,port,user\n"
+        "host-a,10.0.0.1,22,user1\n"
+        "host-b,10.0.0.2,22,user2\n"
+        "host-a,10.0.0.3,22,user3\n"
+    )
+    hosts, max_len = _get_hosts_from_csv(str(csv_file), None)
+    captured = capsys.readouterr()
+
+    assert len(hosts) == 3
+    assert hosts[0][0] == "host-a"
+    assert hosts[1][0] == "host-b"
+    assert hosts[2][0] == "host-a-1"
+    assert "Duplicate host name 'host-a' renamed to 'host-a-1'" in captured.out
+
+
+def test_get_hosts_from_toml_duplicate_names(tmp_path, capsys):
+    """Test that TOML parser naturally prevents duplicate section names.
+
+    TOML spec does not allow duplicate keys, so the last definition wins
+    and no deduplication is needed at the config layer.
+    """
+    toml_file = tmp_path / "hosts.toml"
+    toml_file.write_text(
+        '[host-x]\nip = "10.0.0.1"\nusername = "user1"\n'
+        '[host-y]\nip = "10.0.0.2"\nusername = "user2"\n'
+    )
+    hosts, max_len = _get_hosts_from_toml(str(toml_file), None)
+    captured = capsys.readouterr()
+
+    assert len(hosts) == 2
+    assert hosts[0][0] == "host-x"
+    assert hosts[1][0] == "host-y"
+    assert "Duplicate" not in captured.out

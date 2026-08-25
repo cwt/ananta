@@ -55,6 +55,27 @@ def _validate_retries(retries: int) -> int:
     return retries
 
 
+def _deduplicate_hosts(
+    hosts: List[Tuple[str, str, int, str, str, float, int]],
+) -> List[Tuple[str, str, int, str, str, float, int]]:
+    """Detect and rename duplicate host names with a numeric suffix."""
+    seen: Dict[str, int] = {}
+    result: List[Tuple[str, str, int, str, str, float, int]] = []
+    for host in hosts:
+        name = host[0]
+        if name in seen:
+            seen[name] += 1
+            new_name = f"{name}-{seen[name]}"
+            print(
+                f"Warning: Duplicate host name '{name}' renamed to '{new_name}'"
+            )
+            result.append((new_name, *host[1:]))
+        else:
+            seen[name] = 0
+            result.append(host)
+    return result
+
+
 def _get_hosts_from_toml(
     toml_file_path: str, host_tags_filter_str: str | None
 ) -> Tuple[List[Tuple[str, str, int, str, str, float, int]], int]:
@@ -216,6 +237,7 @@ def _get_hosts_from_toml(
             )
 
     if hosts_to_execute:
+        hosts_to_execute = _deduplicate_hosts(hosts_to_execute)
         max_name_length = max(len(name) for name, *_ in hosts_to_execute)
         return hosts_to_execute, max_name_length
     return [], 0
@@ -292,6 +314,7 @@ def _get_hosts_from_csv(
         return [], 0
 
     if hosts_to_execute:
+        hosts_to_execute = _deduplicate_hosts(hosts_to_execute)
         max_name_length = max(len(name) for name, *_ in hosts_to_execute)
         return hosts_to_execute, max_name_length
     return [], 0
