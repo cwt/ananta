@@ -201,17 +201,22 @@ _ANSI_BG_COLOR_MAP = {
 }
 
 
-def ansi_to_urwid_markup(line: str) -> List[Tuple[urwid.AttrSpec, str] | str]:
+def ansi_to_urwid_markup(
+    line: str, state: _AnsiState | None = None
+) -> Tuple[List[Tuple[urwid.AttrSpec, str] | str], _AnsiState]:
     """
     Convert a string containing ANSI SGR codes to Urwid markup list.
     Non-SGR control codes are stripped, and tabs are expanded.
+    Optionally accepts a persistent _AnsiState to carry SGR attributes
+    across lines (real terminals persist state across newlines).
     """
     cleaned_line = _strip_ansi_control_sequences(line)
 
     markup: List[Tuple[urwid.AttrSpec, str] | str] = []
     last_pos = 0
     current_col = 0
-    state = _AnsiState()
+    if state is None:
+        state = _AnsiState()
 
     for match in _ANSI_SGR_PATTERN.finditer(cleaned_line):
         start, end = match.span()
@@ -297,4 +302,4 @@ def ansi_to_urwid_markup(line: str) -> List[Tuple[urwid.AttrSpec, str] | str]:
         part
         for part in markup
         if isinstance(part, str) or (isinstance(part, tuple) and part[1])
-    ]
+    ], state

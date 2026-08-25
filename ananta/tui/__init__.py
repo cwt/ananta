@@ -19,7 +19,7 @@ from ..ssh import (
     establish_ssh_connection,
     stream_command_output,
 )
-from .ansi import ansi_to_urwid_markup
+from .ansi import _AnsiState, ansi_to_urwid_markup
 
 
 class ListBoxWithScrollBar(urwid.WidgetWrap):
@@ -238,6 +238,7 @@ class AnantaUrwidTUI:
         self.output_queues: Dict[str, asyncio.Queue[str | None]] = {
             host[0]: asyncio.Queue() for host in self.hosts
         }
+        self._ansi_states: Dict[str, _AnsiState] = {}
         # --- Urwid setup ---
         self.host_palette_definitions: Dict[
             str, Tuple[str, str, str, None, None, None]
@@ -400,7 +401,7 @@ class AnantaUrwidTUI:
 
         processed_markup: Any
         if isinstance(message_parts, str):
-            processed_markup = ansi_to_urwid_markup(message_parts)
+            processed_markup, _ = ansi_to_urwid_markup(message_parts)
         else:
             processed_markup = message_parts
 
@@ -591,12 +592,14 @@ class AnantaUrwidTUI:
                     if line_data is None:
                         break
                     collected_output.append(line_data)
+                host_state = self._ansi_states.get(host_name, _AnsiState())
                 for line_data in collected_output:
-                    processed_line_markup = ansi_to_urwid_markup(
-                        line_data.rstrip("\r\n")
+                    markup, host_state = ansi_to_urwid_markup(
+                        line_data.rstrip("\r\n"), host_state
                     )
-                    if processed_line_markup:
-                        self.add_output(prompt + processed_line_markup)
+                    self._ansi_states[host_name] = host_state
+                    if markup:
+                        self.add_output(prompt + markup)
                     elif self.allow_empty_line and line_data.strip() == "":
                         self.add_output(prompt + [""])
             else:
@@ -605,15 +608,17 @@ class AnantaUrwidTUI:
                     if line_data is None:
                         break
 
-                    processed_line_markup = ansi_to_urwid_markup(
-                        line_data.rstrip("\r\n")
+                    host_state = self._ansi_states.get(host_name, _AnsiState())
+                    markup, host_state = ansi_to_urwid_markup(
+                        line_data.rstrip("\r\n"), host_state
                     )
-                    if processed_line_markup:
-                        self.add_output(prompt + processed_line_markup)
+                    self._ansi_states[host_name] = host_state
+                    if markup:
+                        self.add_output(prompt + markup)
                     elif (
                         self.allow_empty_line
                         and line_data.strip() == ""
-                        and not processed_line_markup
+                        and not markup
                     ):
                         self.add_output(prompt + [""])
 

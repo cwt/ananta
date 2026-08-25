@@ -175,7 +175,7 @@ def test_ansi_to_urwid_markup(input_str, expected_markup):
     Tests the conversion of various ANSI strings to Urwid markup.
     The expected markup is a list of (AttrSpec, text) tuples.
     """
-    result = ansi_to_urwid_markup(input_str)
+    result, _ = ansi_to_urwid_markup(input_str)
     # Compare AttrSpec properties and text content
     assert len(result) == len(expected_markup)
     for res_item, exp_item in zip(result, expected_markup):
@@ -184,3 +184,26 @@ def test_ansi_to_urwid_markup(input_str, expected_markup):
         assert res_text == exp_text
         assert res_spec.foreground == exp_spec.foreground
         assert res_spec.background == exp_spec.background
+
+
+def test_ansi_state_persistence_across_lines():
+    """Test that SGR state persists across separate ansi_to_urwid_markup calls."""
+    from ananta.tui.ansi import _AnsiState, ansi_to_urwid_markup
+
+    state = _AnsiState()
+    markup1, state = ansi_to_urwid_markup("\x1b[31mred\x1b[0m", state)
+    markup2, state = ansi_to_urwid_markup(" continues", state)
+
+    # Second line should inherit default state (since SGR 0 was emitted)
+    assert len(markup2) == 1
+    assert markup2[0][1] == " continues"
+    assert markup2[0][0].foreground == "default"
+
+    # Test without explicit reset - color should persist
+    state = _AnsiState()
+    markup1, state = ansi_to_urwid_markup("\x1b[31mred", state)
+    markup2, state = ansi_to_urwid_markup(" more red", state)
+
+    assert len(markup2) == 1
+    assert markup2[0][1] == " more red"
+    assert markup2[0][0].foreground == "dark red"
