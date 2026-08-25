@@ -7,15 +7,18 @@ Manages asynchronous SSH connections and command execution on multiple remote ho
 from __future__ import annotations
 
 import asyncio
-from itertools import cycle
-from random import shuffle
 from typing import Any, Dict, List, Set, Tuple
 
 import asyncssh
 import urwid
 
 from ..config import get_hosts
-from ..ssh import establish_ssh_connection, stream_command_output
+from ..output import _make_color_cycle
+from ..ssh import (
+    _close_ssh_connection,
+    establish_ssh_connection,
+    stream_command_output,
+)
 from .ansi import ansi_to_urwid_markup
 
 
@@ -82,8 +85,6 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
         self, size: Tuple[int, int] | Tuple[int, ...], key: str
     ) -> str | None:
         """Pass keypresses to the list box."""
-        if key == "mouse press":
-            return key
         return self._list_box.keypress(size, key)  # type: ignore
 
     def mouse_event(
@@ -327,10 +328,7 @@ class AnantaUrwidTUI:
                 "brown",
                 "black",
             ]
-            shuffle(URWID_FG_COLORS)  # Shuffle to randomize color assignment
-            COLORS_CYCLE = cycle(
-                URWID_FG_COLORS
-            )  # Create a cycle in case of many hosts
+            COLORS_CYCLE = _make_color_cycle(URWID_FG_COLORS)
         else:
             # Use lighter colors for dark theme (original behavior)
             URWID_FG_COLORS = [
@@ -341,10 +339,7 @@ class AnantaUrwidTUI:
                 "light magenta",
                 "light cyan",
             ]  # dark colors are not used to avoid confusion with similarity of colors
-            shuffle(URWID_FG_COLORS)  # Shuffle to randomize color assignment
-            COLORS_CYCLE = cycle(
-                URWID_FG_COLORS
-            )  # Create a cycle in case of many hosts
+            COLORS_CYCLE = _make_color_cycle(URWID_FG_COLORS)
 
         for host_name, *_ in self.hosts:
             attr_name = self._get_host_attr_name(host_name)
@@ -737,16 +732,14 @@ class AnantaUrwidTUI:
         conn: asyncssh.SSHClientConnection,
     ) -> None:
         """Close a single SSH connection gracefully."""
-        try:
-            conn.close()
-            await asyncio.wait_for(conn.wait_closed(), timeout=2.0)
-        except (asyncio.TimeoutError, Exception):
-            pass
+        await _close_ssh_connection(conn)
 
     def _initial_setup_tasks(self, *_args: Any) -> None:
         """Perform initial setup tasks after the main loop starts."""
         if self.asyncio_loop and not self.asyncio_loop.is_closed():
-            self.asyncio_loop.create_task(self.connect_all_hosts())
+            task = self.asyncio_loop.create_task(self.connect_all_hosts())
+            self.async_tasks.add(task)
+            task.add_done_callback(self.async_tasks.discard)
         else:
             self.add_output(
                 [

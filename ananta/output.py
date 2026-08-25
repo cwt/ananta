@@ -6,9 +6,15 @@ from typing import Dict
 
 from . import BLUE, CYAN, GREEN, MAGENTA, RED, RESET, YELLOW
 
+
+def _make_color_cycle(colors: list[str]) -> cycle:
+    """Shuffle a list of color strings and return a cycle iterator."""
+    shuffle(colors)
+    return cycle(colors)
+
+
 COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
-shuffle(COLORS)  # Shuffle colors for randomness
-COLORS_CYCLE = cycle(COLORS)  # Create a cycle iterator for colors
+COLORS_CYCLE = _make_color_cycle(COLORS)
 HOST_COLOR: Dict[str, str] = {}  # Dictionary to store host colors
 
 # Pattern to match common cursor control and screen clear ANSI codes
@@ -46,9 +52,6 @@ def adjust_cursor_with_prompt(
 
     # If erase the whole line, jump to col 0, add prompt, then return
     line = line.replace("\x1b[2K", f"\x1b[2K\x1b[s\x1b[G{prompt}\x1b[u")
-
-    # Add prompt to any carriage return
-    line = line.replace("\r", f"\r{prompt}")
 
     return line.rstrip()
 

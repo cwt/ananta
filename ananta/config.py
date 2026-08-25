@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Set, Tuple
 
 # Conditional import for TOML parsing
 if sys.version_info >= (3, 11):
-    import tomllib  # pylint: disable=unused-import
+    import tomllib
 else:
     try:
         import tomli as tomllib  # Alias tomli as tomllib for consistent use

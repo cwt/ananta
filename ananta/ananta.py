@@ -75,23 +75,6 @@ async def main(  # This is the non-TUI main function
         )
         for host_name, *_ in hosts_to_execute
     ]
-    # Ensure future is created for Python 3.10 compatibility with some asyncio versions
-    # For modern asyncio, ensure_future is often not needed for create_task results.
-    # However, gathering them is the main point.
-    # asyncio.gather itself will schedule them if they are bare coroutines.
-    # If they are already tasks, gather works fine.
-    # Let's keep ensure_future for clarity or remove if targeting only very new Python/asyncio.
-    # For now, let's rely on gather to handle it.
-    # asyncio.ensure_future(asyncio.gather(*print_tasks)) # Old way
-    # Modern way: just gather the coroutines/tasks.
-    # If print_output are coroutines, gather will schedule them.
-    # If they are already tasks (e.g. from create_task), gather awaits them.
-    # The list comprehension creates coroutines, so gather will schedule them.
-
-    # We need to ensure print_tasks are running in the background
-    # while execute tasks are also running.
-    # One way is to create tasks for them and then gather execute tasks.
-
     printing_task_group = asyncio.gather(*print_tasks)
 
     # Create a task for each host to execute the SSH command

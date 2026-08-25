@@ -185,6 +185,18 @@ async def stream_command_output(
                     pass  # Process didn't close even after force close
 
 
+async def _close_ssh_connection(
+    conn: asyncssh.SSHClientConnection | None,
+) -> None:
+    """Close an SSH connection gracefully with a timeout."""
+    if conn and not conn.is_closed():
+        try:
+            conn.close()
+            await asyncio.wait_for(conn.wait_closed(), timeout=2.0)
+        except (asyncio.TimeoutError, Exception):
+            pass
+
+
 async def execute(
     host_name: str,
     ip_address: str,
@@ -234,11 +246,6 @@ async def execute(
         )
     finally:
         # Close the connection if it was established
-        if conn and not conn.is_closed():
-            try:
-                conn.close()
-                await asyncio.wait_for(conn.wait_closed(), timeout=2.0)
-            except (asyncio.TimeoutError, Exception):
-                pass
+        await _close_ssh_connection(conn)
         # Signal end of output once, regardless of success or failure
         await output_queue.put(get_end_marker(host_name, remote_width, color))

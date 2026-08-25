@@ -12,7 +12,6 @@ _DEFAULT_BG_COLOR = "default"  # Urwid's default color string for background
 class _AnsiState:
     """Manages the current state of ANSI SGR attributes."""
 
-    """Initialize the ANSI state with default attributes."""
     fg: str = _DEFAULT_FG_COLOR
     bg: str = _DEFAULT_BG_COLOR
     styles: set[str] = field(default_factory=set)
@@ -244,7 +243,7 @@ def ansi_to_urwid_markup(line: str) -> List[Tuple[urwid.AttrSpec, str] | str]:
                 match code:
                     # add, update, or remove styles based on ANSI codes 
                     case "1": state.styles.add("bold")
-                    case "2": state.styles.add("faint")
+                    case "2": pass  # faint not supported by urwid
                     case "3": state.styles.add("italics")
                     case "4": state.styles.add("underline")
                     case "5" | "6": state.styles.add("blink")
@@ -252,7 +251,7 @@ def ansi_to_urwid_markup(line: str) -> List[Tuple[urwid.AttrSpec, str] | str]:
                     case "8": state.styles.add("conceal")
                     case "9": state.styles.add("strikethrough")
                     case "21": state.styles.add("underline")
-                    case "22": state.styles.difference_update({"bold", "faint"})
+                    case "22": state.styles.discard("bold")
                     case "23": state.styles.discard("italics")
                     case "24": state.styles.discard("underline")
                     case "25": state.styles.discard("blink")

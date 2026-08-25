@@ -85,8 +85,6 @@ def test_get_end_marker_with_color():
         ("Line with cursor up \x1b[1A", "Line with cursor up "),
         # Screen clear removed
         ("Line with clear screen \x1b[2J", "Line with clear screen "),
-        # Carriage return gets prompt prepended
-        ("Line \rwith carriage return", "Line \r[prompt] with carriage return"),
         # Erase to beginning gets prompt prepended after jump
         (
             "Text\x1b[1KPartial erase",
@@ -122,8 +120,6 @@ def test_adjust_cursor_no_control(line_input, expected_output_no_control):
             "Line with clear screen \x1b[2J",
             "Line with clear screen \x1b[2J",
         ),  # Kept
-        # Carriage return gets prompt prepended
-        ("Line \rwith carriage return", "Line \r[prompt] with carriage return"),
         # Erase to beginning gets prompt prepended after jump
         (
             "Text\x1b[1KPartial erase",
