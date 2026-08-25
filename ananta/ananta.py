@@ -274,7 +274,7 @@ def run_cli() -> None:
         local_display_width: int = args.terminal_width or int(
             os.environ.get("COLUMNS", os.get_terminal_size().columns)
         )
-    except OSError:
+    except (OSError, ValueError):
         local_display_width = args.terminal_width or 80
 
     color = not args.no_color
