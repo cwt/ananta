@@ -45,7 +45,13 @@ To contribute, you'll need:
 
 ### Code Style and Formatting
 
-Ananta follows a consistent code style enforced by **Black** and type-checked with **Mypy**:
+Ananta follows a consistent code style enforced by **Black** and type-checked with **Mypy**, with lint rules checked by **Ruff**:
+
+- **Lint and Auto-fix Imports**:
+  Check (and auto-fix) import organization and Pyflakes rules:
+  ```bash
+  ./scripts/lint-check-and-fix.sh  # On Unix-like systems
+  ```
 
 - **Format Code**:
   Run the formatting script to apply Black with Python 3.12 target and 80-character line length:
@@ -94,8 +100,9 @@ Ananta uses **Pytest** for testing, with **pytest-asyncio** for async code and *
    Implement your changes, following the code style and adding tests as needed.
 
 3. **Run Checks and Tests**:
-   Ensure your code passes formatting, type-checking, and tests:
+   Ensure your code passes linting, formatting, type-checking, and tests:
    ```bash
+   ./scripts/lint-check-and-fix.sh
    ./scripts/code-format.sh
    ./scripts/type-check.sh
    ./scripts/runtest.sh

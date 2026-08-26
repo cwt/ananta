@@ -201,6 +201,11 @@ $ ananta --tui -t web,db hosts.toml "df -h"
 - Requires the `urwid` library, automatically installed with `pip install ananta`.
 - The TUI mode streams output in real-time for interleaved display or waits for complete output with `-s` (separate output).
 - Cursor control codes are stripped to ensure proper rendering in the TUI.
+- Host keys are verified on connect just like non-TUI mode. A host whose key
+  changed is refused and flagged prominently in red — commands skip it. To
+  accept a verified key change, either remove/replace its entry in
+  `~/.ssh/known_hosts` yourself, or use non-TUI mode with
+  `--override-mismatched-keys`.
 
 ### Options
 
@@ -235,6 +240,39 @@ before running any command:
 After verifying a key change out-of-band (server rebuild, etc.), you can
 accept it by re-running with `--override-mismatched-keys` and typing
 `CONFIRM` at the prompt.
+
+**First run against new hosts:**
+
+```console
+$ ananta -t arch hosts.toml sudo pacman -Syu --noconfirm
+...
+Added 3 new host key(s) to /home/user/.ssh/known_hosts:
+  - [10.0.0.10]:2222 (SHA256:xK9f...)
+  - web-02 (SHA256:mQ2a...)
+  - web-03 (SHA256:pL7b...)
+```
+
+The command runs normally; new keys are trusted, recorded, and only
+reported once at the end. Subsequent runs are fully silent about them.
+
+**Key changed since last connection:**
+
+```console
+$ ananta hosts.toml uptime
+
+!! HOST KEY MISMATCH DETECTED - batch aborted, no commands executed.
+  web-02: recorded SHA256:mQ2a... / presented SHA256:tR1c...
+
+This may indicate a server rebuild or a man-in-the-middle attack.
+Verify out-of-band (console access, colleague, change ticket), then:
+  - fix or remove the affected hosts from your inventory and re-run, or
+  - re-run with --override-mismatched-keys to accept the new keys.
+```
+
+Nothing was executed on any host — including the ones that connected fine —
+so you never end up with a partially-applied change across your fleet.
+The process exits with code **3**, which lets scripts distinguish a
+security abort from ordinary failures.
 
 ### Demo
 
