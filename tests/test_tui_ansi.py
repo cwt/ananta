@@ -239,3 +239,21 @@ def test_ansi_state_persistence_across_lines():
     assert len(markup2) == 1
     assert markup2[0][1] == " more red"
     assert markup2[0][0].foreground == "dark red"
+
+
+def test_attr_spec_cache_key_stable_across_style_insertion_order():
+    """Regression: identical states must hit the same lru_cache entry.
+
+    Styles are stored in an unordered set; without sorting, the same
+    visual state could produce different cache keys depending on the
+    order styles were inserted, thrashing _build_attr_spec's cache.
+    """
+    state_one = _AnsiState()
+    state_one.styles.add("bold")
+    state_one.styles.add("underline")
+
+    state_two = _AnsiState()
+    state_two.styles.add("underline")
+    state_two.styles.add("bold")
+
+    assert state_one.get_attr_spec() is state_two.get_attr_spec()

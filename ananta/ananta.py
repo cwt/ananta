@@ -119,6 +119,28 @@ def _get_loop_module_name() -> str:
         temp_loop.close()
 
 
+def _resolve_display_width(terminal_width_arg: int | None) -> int:
+    """Resolve display width from CLI arg, COLUMNS env var, or terminal size.
+
+    An invalid COLUMNS value falls back to terminal size detection rather
+    than skipping it.
+    """
+    if terminal_width_arg:
+        return terminal_width_arg
+
+    columns_env = os.environ.get("COLUMNS")
+    if columns_env:
+        try:
+            return int(columns_env)
+        except ValueError:
+            pass  # Invalid COLUMNS; fall through to terminal size detection
+
+    try:
+        return os.get_terminal_size().columns
+    except OSError:
+        return 80
+
+
 def run_cli() -> None:
     """Command-line interface for Ananta."""
     parser = argparse.ArgumentParser(
@@ -270,12 +292,7 @@ def run_cli() -> None:
         parser.print_help()
         sys.exit(1)  # Exit with error if no command for non-TUI
 
-    try:
-        local_display_width: int = args.terminal_width or int(
-            os.environ.get("COLUMNS", os.get_terminal_size().columns)
-        )
-    except (OSError, ValueError):
-        local_display_width = args.terminal_width or 80
+    local_display_width: int = _resolve_display_width(args.terminal_width)
 
     color = not args.no_color
 

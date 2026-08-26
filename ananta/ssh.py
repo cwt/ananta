@@ -214,7 +214,8 @@ async def execute(
     max_retries: int,
 ) -> None:
     """Execute the SSH command on the remote host and handle the output."""
-    remote_width = local_display_width - max_name_length - 3
+    # Clamp to a sane minimum for narrow terminals or very long host names.
+    remote_width = max(local_display_width - max_name_length - 3, 10)
     conn = None
 
     try:

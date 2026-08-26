@@ -344,3 +344,53 @@ def test_run_cli_tui_light_option(mock_parse_args, mock_main_func):
     mock_tui_class.assert_called_once()
     args, kwargs = mock_tui_class.call_args
     assert kwargs.get("light_theme") == True
+
+
+@patch("ananta.ananta.main", new_callable=AsyncMock)  # Mock main
+@patch("ananta.ananta.argparse.ArgumentParser.parse_args")
+@patch("os.get_terminal_size")
+@patch.dict(os.environ, {"COLUMNS": "auto"}, clear=True)
+def test_run_cli_invalid_columns_env_falls_back_to_terminal_size(
+    mock_get_terminal_size, mock_parse_args, mock_main_func
+):
+    """Regression: a non-numeric COLUMNS value must fall through to terminal
+    size detection instead of skipping it and defaulting to 80."""
+    mock_parse_args.return_value = MagicMock(
+        host_file="hosts.csv",
+        command=["cmd"],
+        version=False,
+        terminal_width=None,
+        tui=False,
+        tui_light=False,
+    )
+    mock_get_terminal_size.return_value = os.terminal_size((110, 24))
+
+    run_cli()
+
+    args, kwargs = mock_main_func.call_args  # noqa
+    assert args[2] == 110  # from get_terminal_size, not the invalid env var
+
+
+@patch("ananta.ananta.main", new_callable=AsyncMock)
+@patch("ananta.ananta.argparse.ArgumentParser.parse_args")
+def test_run_cli_unresolvable_width_defaults_to_80(
+    mock_parse_args, mock_main_func
+):
+    """No COLUMNS and no usable terminal -> default width 80."""
+    mock_parse_args.return_value = MagicMock(
+        host_file="hosts.csv",
+        command=["cmd"],
+        version=False,
+        terminal_width=None,
+        tui=False,
+        tui_light=False,
+    )
+
+    with (
+        patch.dict(os.environ, {}, clear=True),
+        patch("os.get_terminal_size", side_effect=OSError("no tty")),
+    ):
+        run_cli()
+
+    args, kwargs = mock_main_func.call_args  # noqa
+    assert args[2] == 80

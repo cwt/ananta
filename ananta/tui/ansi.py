@@ -72,7 +72,9 @@ class _AnsiState:
 
     def get_attr_spec(self) -> urwid.AttrSpec:
         """Create an Urwid AttrSpec from the current state."""
-        styles_tuple = tuple(self.styles) if self.styles else ()
+        # Sort styles so identical states always produce the same cache key,
+        # regardless of insertion order into the set.
+        styles_tuple = tuple(sorted(self.styles))
         return _build_attr_spec(self.fg, self.bg, styles_tuple)
 
 

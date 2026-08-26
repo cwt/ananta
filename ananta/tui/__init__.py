@@ -318,10 +318,23 @@ class AnantaUrwidTUI:
             )
 
     def _get_host_attr_name(self, host_name: str) -> str:
+        """Return a unique palette attribute name for a host."""
         if host_name not in self._host_attr_names:
-            self._host_attr_names[host_name] = (
-                f"host_{host_name.lower().replace('-', '_').replace(' ', '_').replace('.', '_')}"
+            sanitized = (
+                host_name.lower()
+                .replace("-", "_")
+                .replace(" ", "_")
+                .replace(".", "_")
             )
+            attr_name = f"host_{sanitized}"
+            # Distinct hosts can sanitize to the same name (e.g. "web-1"
+            # and "web_1"); suffix until unique so colors never merge.
+            taken = set(self._host_attr_names.values())
+            suffix = 1
+            while attr_name in taken:
+                attr_name = f"host_{sanitized}_{suffix}"
+                suffix += 1
+            self._host_attr_names[host_name] = attr_name
         return self._host_attr_names[host_name]
 
     def format_host_prompt(

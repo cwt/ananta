@@ -343,3 +343,22 @@ async def test_perform_shutdown_with_timeout(mock_tui):
         [str(c.args[0]) for c in mock_tui.urwid.Text.call_args_list]
     )
     assert "All connections closed or timed out" in text_outputs
+
+
+def test_host_attr_names_unique_across_sanitized_collisions(mock_tui):
+    """Regression: hosts that sanitize to the same attribute name (e.g.
+    "web-1" and "web_1") must get distinct palette entries, never share a
+    color."""
+    tui = mock_tui
+    tui._host_attr_names.clear()
+
+    name_a = tui._get_host_attr_name("web-1")
+    name_b = tui._get_host_attr_name("web_1")
+    name_c = tui._get_host_attr_name("web.1")
+
+    assert name_a == "host_web_1"
+    # Collisions must be suffixed until unique, not silently merged.
+    assert name_b != name_a
+    assert name_c not in (name_a, name_b)
+    # Stable across repeated lookups.
+    assert tui._get_host_attr_name("web-1") == name_a
