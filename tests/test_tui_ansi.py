@@ -69,6 +69,38 @@ def test_ansi_state_reset():
     assert state.styles == set()
 
 
+def test_compound_sgr_reset_code_resets_state():
+    """Regression: ESC[0;<code>m must reset before applying the rest.
+
+    Previously the reset code was only honored when the sequence
+    contained exactly one parameter (ESC[0m), so common sequences like
+    ESC[0;31m kept stale bold/color attributes.
+    """
+    state = _AnsiState()
+    state.styles.add("bold")
+    state.fg = "light blue"
+
+    markup, result_state = ansi_to_urwid_markup("\x1b[0;31mred", state)
+
+    # Bold from the previous state must be gone; only the new color set.
+    assert "bold" not in result_state.styles
+    assert result_state.fg == "dark red"
+    assert len(markup) == 1
+    assert markup[0][1] == "red"
+    assert markup[0][0].foreground == "dark red"
+
+
+def test_reset_code_mid_sequence_resets_state():
+    """A reset parameter in the middle of a sequence resets everything so far."""
+    state = _AnsiState()
+    state.styles.add("bold")
+
+    _, result_state = ansi_to_urwid_markup("\x1b[31;0;32mgreen", state)
+
+    assert not result_state.styles
+    assert result_state.fg == "dark green"
+
+
 @pytest.mark.parametrize(
     "input_str, expected_markup",
     [

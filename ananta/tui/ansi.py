@@ -237,7 +237,7 @@ def ansi_to_urwid_markup(
         last_pos = end
 
         codes_str = match.group(1)
-        if not codes_str or codes_str == "0":
+        if not codes_str:
             state.reset()
         else:
             params = codes_str.split(";")
@@ -250,6 +250,9 @@ def ansi_to_urwid_markup(
                 # turn off black formatting to make code more readable
                 # fmt: off
                 match code:
+                    # reset all attributes
+                    case "0":
+                        state.reset()
                     # add, update, or remove styles based on ANSI codes 
                     case "1": state.styles.add("bold")
                     case "2": pass  # faint not supported by urwid

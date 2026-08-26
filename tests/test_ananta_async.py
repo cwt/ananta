@@ -150,3 +150,41 @@ async def test_main_with_hosts_and_options(
 
     q1.put.assert_called_with(None)
     q2.put.assert_called_with(None)
+
+
+@patch("ananta.ananta.execute", new_callable=AsyncMock)
+@patch("ananta.ananta.print_output", new_callable=AsyncMock)
+@patch("ananta.ananta.get_hosts")
+@patch("ananta.ananta.asyncio.Queue")
+async def test_main_signals_printers_when_execute_raises(
+    mock_queue_cls, mock_get_hosts, mock_print_output, mock_execute
+):
+    """Regression: an unexpected exception escaping execute() must not leave
+    print tasks hanging. End-of-output sentinels must still be delivered and
+    printing tasks awaited before the error propagates."""
+    hosts_data = [("host1", "10.0.0.1", 22, "user1", "/key1", 5.0, 2)]
+    mock_get_hosts.return_value = (hosts_data, 5)
+
+    q1 = MagicMock()
+    q1.put = AsyncMock()
+    mock_queue_cls.side_effect = [q1]
+
+    mock_execute.side_effect = OSError("unexpected failure")
+
+    with pytest.raises(OSError):
+        await main(
+            host_file="hosts.toml",
+            ssh_command="uptime",
+            local_display_width=80,
+            separate_output=False,
+            allow_empty_line=False,
+            allow_cursor_control=False,
+            default_key=None,
+            color=True,
+            host_tags=None,
+        )
+
+    # The sentinel must have been queued despite the failure.
+    q1.put.assert_called_with(None)
+    # Printing tasks must have been started and completed (gathered).
+    mock_print_output.assert_called_once()

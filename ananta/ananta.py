@@ -98,14 +98,15 @@ async def main(  # This is the non-TUI main function
     ]
 
     # Execute all command execution tasks concurrently
-    await asyncio.gather(*exec_tasks)
+    try:
+        await asyncio.gather(*exec_tasks)
+    finally:
+        # Signal end of output even if a task failed, so print tasks never hang.
+        for host_name in output_queues:
+            await output_queues[host_name].put(None)
 
-    # After all exec_tasks are done, signal end to print_tasks
-    for host_name in output_queues:
-        await output_queues[host_name].put(None)
-
-    # Wait for all printing tasks to complete
-    await printing_task_group
+        # Wait for all printing tasks to complete (they exit on the sentinel)
+        await printing_task_group
 
 
 def _get_loop_module_name() -> str:
