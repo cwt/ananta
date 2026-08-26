@@ -9,6 +9,7 @@ from ananta.host_keys import (
     _host_entry_name,
     make_client_factory,
 )
+from ananta.ssh import retry_connect
 
 pytestmark = pytest.mark.asyncio
 
@@ -203,3 +204,80 @@ async def test_retry_connect_raises_fast_on_mismatch(tmp_path, key_a):
                 policy=HostKeyPolicy(known_hosts_path=kh),
             )
     assert calls["n"] == 1  # no retries on deterministic security failure
+
+
+class TestAgainstRealSSHServer:
+    """End-to-end tests against a live in-process asyncssh server.
+
+    These guard the actual wiring between asyncssh and the policy hook —
+    a previous regression had known_hosts=None silently bypassing
+    validate_host_public_key entirely.
+    """
+
+    @staticmethod
+    async def start_server(tmp_path):
+        server_key_path = str(tmp_path / "server_key")
+        server_key = asyncssh.generate_private_key("ssh-ed25519")
+        server_key.write_private_key(server_key_path)
+
+        class Server(asyncssh.SSHServer):
+            def begin_auth(self, username):
+                return False  # No auth required for these tests
+
+        return (
+            await asyncssh.create_server(
+                Server, "127.0.0.1", 0, server_host_keys=[server_key_path]
+            ),
+            server_key,
+        )
+
+    async def test_unknown_host_is_tofu_appended(self, tmp_path):
+        from ananta.ssh import _close_ssh_connection
+
+        server, _ = await self.start_server(tmp_path)
+        port = server.sockets[0].getsockname()[1]
+        kh = tmp_path / "known_hosts"
+        policy = HostKeyPolicy(known_hosts_path=kh)
+
+        conn = await retry_connect(
+            ip_address="127.0.0.1",
+            ssh_port=port,
+            username="u",
+            client_keys=[],
+            timeout=5,
+            max_retries=0,
+            policy=policy,
+        )
+        await _close_ssh_connection(conn)
+        server.close()
+
+        assert kh.exists(), "TOFU must persist the new host key"
+        content = kh.read_text(encoding="utf-8")
+        assert "127.0.0.1" in content
+        assert len(policy.added_keys) == 1
+        # Non-default port entries use the [host]:port form.
+        assert policy.added_keys[0][0].startswith("[127.0.0.1]:")
+
+    async def test_mismatch_refuses_connection_without_retry(self, tmp_path):
+        server, server_key = await self.start_server(tmp_path)
+        port = server.sockets[0].getsockname()[1]
+
+        # Seed known_hosts with a DIFFERENT key than the real server's.
+        other = asyncssh.generate_private_key("ssh-ed25519")
+        kh = tmp_path / "known_hosts"
+        blob = other.export_public_key("openssh").decode().strip()
+        kh.write_text(f"[127.0.0.1]:{port} {blob}\n", encoding="utf-8")
+
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        with pytest.raises(HostKeyChangedError):
+            await retry_connect(
+                ip_address="127.0.0.1",
+                ssh_port=port,
+                username="u",
+                client_keys=[],
+                timeout=5,
+                max_retries=3,  # Would mask the failure if it retried
+                policy=policy,
+            )
+        # The mismatched key must not have been persisted.
+        assert kh.read_text(encoding="utf-8") == f"[127.0.0.1]:{port} {blob}\n"

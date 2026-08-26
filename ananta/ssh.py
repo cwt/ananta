@@ -49,7 +49,10 @@ async def retry_connect(
                     port=ssh_port,
                     username=username,
                     client_keys=client_keys,
-                    known_hosts=None,  # built-in check off; our client hook verifies
+                    # Point asyncssh at an always-empty file so its built-in
+                    # matcher finds nothing and defers every decision to our
+                    # client hook below (None would skip validation entirely).
+                    known_hosts=os.devnull,
                     compression_algs=None,
                     client_factory=make_client_factory(
                         policy, entry, ip_address
