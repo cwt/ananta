@@ -1,7 +1,6 @@
 import functools
 import re
 from dataclasses import dataclass, field
-from typing import List, Tuple
 
 import urwid
 
@@ -21,7 +20,7 @@ _URWID_SUPPORTED_STYLES = {
 
 @functools.lru_cache(maxsize=256)
 def _build_attr_spec(
-    fg: str, bg: str, styles: Tuple[str, ...]
+    fg: str, bg: str, styles: tuple[str, ...]
 ) -> urwid.AttrSpec:
     """Create and cache an Urwid AttrSpec from color and style specifications."""
     current_fg_color = fg
@@ -208,7 +207,7 @@ _ANSI_BG_COLOR_MAP = {
 
 def ansi_to_urwid_markup(
     line: str, state: _AnsiState | None = None
-) -> Tuple[List[Tuple[urwid.AttrSpec, str] | str], _AnsiState]:
+) -> tuple[list[tuple[urwid.AttrSpec, str] | str], _AnsiState]:
     """
     Convert a string containing ANSI SGR codes to Urwid markup list.
     Non-SGR control codes are stripped, and tabs are expanded.
@@ -217,7 +216,7 @@ def ansi_to_urwid_markup(
     """
     cleaned_line = _strip_ansi_control_sequences(line)
 
-    markup: List[Tuple[urwid.AttrSpec, str] | str] = []
+    markup: list[tuple[urwid.AttrSpec, str] | str] = []
     last_pos = 0
     current_col = 0
     if state is None:

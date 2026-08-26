@@ -2,7 +2,6 @@ import asyncio
 import re
 from itertools import cycle
 from random import shuffle
-from typing import Dict
 
 from . import BLUE, CYAN, GREEN, MAGENTA, RED, RESET, YELLOW
 
@@ -16,7 +15,7 @@ def _make_color_cycle(colors: list[str]) -> cycle:
 
 COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
 COLORS_CYCLE = _make_color_cycle(COLORS)
-HOST_COLOR: Dict[str, str] = {}  # Dictionary to store host colors
+HOST_COLOR: dict[str, str] = {}  # Dictionary to store host colors
 
 # Pattern to match common cursor control and screen clear ANSI codes
 ansi_cursor_control = re.compile(

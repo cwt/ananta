@@ -5,7 +5,7 @@ import asyncssh
 
 from ananta.output import get_end_marker
 
-from . import LINES
+from . import LINES, UNSPECIFIED_KEY_PATH
 
 
 async def retry_connect(
@@ -66,10 +66,15 @@ async def retry_connect(
     ) from last_error
 
 
+def _build_remote_command(remote_width: int, ssh_command: str) -> str:
+    """Prefix the command with COLUMNS/LINES environment settings."""
+    return f"env COLUMNS={remote_width} LINES={LINES} {ssh_command}"
+
+
 def get_ssh_keys(key_path: str | None, default_key: str | None) -> list[str]:
     """Determine SSH keys to use based on provided inputs."""
     # If key path is specified in the hosts file
-    if key_path and key_path != "#":
+    if key_path and key_path != UNSPECIFIED_KEY_PATH:
         return [key_path]
     # If key path is # (not specified) and default key is specified via -K
     if default_key:
@@ -115,7 +120,7 @@ async def execute_command(
     output = ""
     try:
         result = await conn.run(
-            command=f"env COLUMNS={remote_width} LINES={LINES} {ssh_command}",
+            command=_build_remote_command(remote_width, ssh_command),
             term_type="ansi" if color else "dumb",
             term_size=(remote_width, LINES),
             env={},
@@ -144,7 +149,7 @@ async def stream_command_output(
     process = None
     try:
         process = await conn.create_process(
-            command=f"env COLUMNS={remote_width} LINES={LINES} {ssh_command}",
+            command=_build_remote_command(remote_width, ssh_command),
             term_type="ansi" if color else "dumb",
             term_size=(remote_width, LINES),
             env={},

@@ -10,7 +10,6 @@ import asyncio
 import os
 import sys
 from types import ModuleType
-from typing import Dict, List
 
 from . import __version__
 from .config import get_hosts
@@ -54,7 +53,7 @@ async def main(  # This is the non-TUI main function
         return
 
     # Dictionary to hold separate output queues for each host
-    output_queues: Dict[str, asyncio.Queue[str | None]] = {
+    output_queues: dict[str, asyncio.Queue[str | None]] = {
         host_name: asyncio.Queue() for host_name, *_ in hosts_to_execute
     }
 
@@ -107,6 +106,16 @@ async def main(  # This is the non-TUI main function
 
     # Wait for all printing tasks to complete
     await printing_task_group
+
+
+def _get_loop_module_name() -> str:
+    """Return the module name of a freshly created event loop (uvloop if available)."""
+    module: ModuleType = uvloop if uvloop else asyncio
+    temp_loop = module.new_event_loop()
+    try:
+        return temp_loop.__class__.__module__
+    finally:
+        temp_loop.close()
 
 
 def run_cli() -> None:
@@ -211,22 +220,12 @@ def run_cli() -> None:
 
     if args.version:
         # Print the version of Ananta with the asyncio event loop module
-        # Determine which module will be used without directly calling get_event_loop_policy()
-        if uvloop:
-            # Use a new loop instance to get the module name
-            temp_loop = uvloop.new_event_loop()
-            loop_module = temp_loop.__class__.__module__
-            temp_loop.close()
-        else:
-            # For default policy, we'll create a temporary loop to get its module
-            temp_loop = asyncio.new_event_loop()
-            loop_module = temp_loop.__class__.__module__
-            temp_loop.close()
+        loop_module = _get_loop_module_name()
         print(f"Ananta-{__version__} " f"powered by {loop_module}")
         sys.exit(0)
 
     host_file: str | None = args.host_file
-    ssh_command_list: List[str] = (
+    ssh_command_list: list[str] = (
         args.command
     )  # Keep as list for TUI initial command
     ssh_command_str: str = " ".join(ssh_command_list)

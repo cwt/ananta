@@ -18,3 +18,6 @@ RESET = "\033[0m"
 
 # Large height for long outputs
 LINES = 1000
+
+# Sentinel key_path meaning "not specified in the hosts file"
+UNSPECIFIED_KEY_PATH = "#"

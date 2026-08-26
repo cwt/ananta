@@ -7,7 +7,7 @@ Manages asynchronous SSH connections and command execution on multiple remote ho
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 import asyncssh
 import urwid
@@ -29,7 +29,7 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
         self._walker = walker
         self._list_box = urwid.ListBox(self._walker)
         self._scrollbar = urwid.Text("", align="left")
-        self._last_scrollbar_state: Tuple[int, int, int] | None = None
+        self._last_scrollbar_state: tuple[int, int, int] | None = None
         self._wrapped_widget = urwid.Columns(
             [
                 (self._list_box),
@@ -40,13 +40,13 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
         super().__init__(self._wrapped_widget)
 
     def render(
-        self, size: Tuple[int, int], focus: bool = False
+        self, size: tuple[int, int], focus: bool = False
     ) -> urwid.Canvas:
         """Render the widget and update the scrollbar."""
         self._update_scrollbar(size)
         return super().render(size, focus)
 
-    def _update_scrollbar(self, size: Tuple[int, int]) -> None:
+    def _update_scrollbar(self, size: tuple[int, int]) -> None:
         """Update the scrollbar's appearance based on the list box's state."""
         max_height = size[1]
         if max_height <= 0 or not self._walker:
@@ -92,14 +92,14 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
         self._scrollbar.set_text("\n".join(bar_chars))
 
     def keypress(
-        self, size: Tuple[int, int] | Tuple[int, ...], key: str
+        self, size: tuple[int, int] | tuple[int, ...], key: str
     ) -> str | None:
         """Pass keypresses to the list box."""
         return self._list_box.keypress(size, key)  # type: ignore
 
     def mouse_event(
         self,
-        size: Tuple[int, int],
+        size: tuple[int, int],
         event: str,
         button: int,
         col: int,
@@ -123,7 +123,7 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
 
 
 # --- Setup colors for hosts ---
-# Colors are now handled within the _populate_host_palette_definitions method
+# Colors are now handled within the _populate_host_fg_colors method
 
 
 class AnantaMainLoop(urwid.MainLoop):
@@ -139,13 +139,13 @@ class RefreshingPile(urwid.Pile):
     """A Pile that forces a redraw after any keypress is handled."""
 
     def __init__(
-        self, widget_list: List[Any], tui: "AnantaUrwidTUI", **kwargs: Any
+        self, widget_list: list[Any], tui: "AnantaUrwidTUI", **kwargs: Any
     ):
         self._tui = tui
         super().__init__(widget_list, **kwargs)
 
     def keypress(
-        self, size: Tuple[int, int] | Tuple[int, ...] | Tuple[()], key: str
+        self, size: tuple[int, int] | tuple[int, ...] | tuple[()], key: str
     ) -> str | None:
         """Handle keypress and then request a redraw."""
         result = super().keypress(size, key)  # type: ignore
@@ -168,7 +168,7 @@ class AnantaUrwidTUI:
 
     def _get_default_palette(
         self,
-    ) -> List[Tuple[str, str, str, None, None, None]]:
+    ) -> list[tuple[str, str, str, None, None, None]]:
         """Return the default palette based on theme."""
         if self.light_theme:
             return [
@@ -219,7 +219,7 @@ class AnantaUrwidTUI:
             ]
 
     @property
-    def DEFAULT_PALETTE(self) -> List[Tuple[str, str, str, None, None, None]]:
+    def DEFAULT_PALETTE(self) -> list[tuple[str, str, str, None, None, None]]:
         return self._get_default_palette()
 
     def __init__(
@@ -242,20 +242,19 @@ class AnantaUrwidTUI:
         self.allow_empty_line = allow_empty_line
         self.light_theme = light_theme
         self.hosts, self.max_name_length = get_hosts(host_file, host_tags)
-        self.connections: Dict[str, asyncssh.SSHClientConnection | None] = {
+        self.connections: dict[str, asyncssh.SSHClientConnection | None] = {
             host[0]: None for host in self.hosts
         }
-        self.output_queues: Dict[str, asyncio.Queue[str | None]] = {
+        self.output_queues: dict[str, asyncio.Queue[str | None]] = {
             host[0]: asyncio.Queue() for host in self.hosts
         }
-        self._ansi_states: Dict[str, _AnsiState] = {}
-        self._host_attr_names: Dict[str, str] = {}
-        self._host_prompts: Dict[str, List[Tuple[str, str]]] = {}
+        self._ansi_states: dict[str, _AnsiState] = {}
+        self._host_attr_names: dict[str, str] = {}
+        self._host_prompts: dict[str, list[tuple[str, str]]] = {}
         # --- Urwid setup ---
-        self.host_palette_definitions: Dict[
-            str, Tuple[str, str, str, None, None, None]
-        ] = {}
-        self._populate_host_palette_definitions()
+        # Maps host attr names to their foreground color for the palette.
+        self.host_fg_colors: dict[str, str] = {}
+        self._populate_host_fg_colors()
         self.current_palette = self._build_palette()
         self.output_walker: urwid.SimpleFocusListWalker = (
             urwid.SimpleFocusListWalker([])
@@ -276,12 +275,12 @@ class AnantaUrwidTUI:
             ("fixed", 1, urwid.SolidFill("─")),
             ("fixed", 1, urwid.AttrMap(self.input_wrapper, "body")),
         ]
+        # focus_item=2 puts the initial focus on the input field.
         self.main_pile = RefreshingPile(widgets, tui=self, focus_item=2)
         self.main_layout: urwid.Frame = urwid.Frame(body=self.main_pile)
-        self.main_pile.focus_position = 2
         # --- Event loop and async tasks setup ---
         self.loop: urwid.MainLoop | None = None
-        self.async_tasks: Set[asyncio.Task[Any]] = set()
+        self.async_tasks: set[asyncio.Task[Any]] = set()
         self.is_exiting = False
         self.asyncio_loop: asyncio.AbstractEventLoop | None = None
         self.draw_screen_handle: Any = None
@@ -327,18 +326,17 @@ class AnantaUrwidTUI:
 
     def format_host_prompt(
         self, host_name: str, max_name_length: int
-    ) -> List[Tuple[str, str]]:
+    ) -> list[tuple[str, str]]:
         if host_name not in self._host_prompts:
             attr_name = self._get_host_attr_name(host_name)
             padded_host = host_name.rjust(max_name_length)
             self._host_prompts[host_name] = [(attr_name, f"[{padded_host}] ")]
         return list(self._host_prompts[host_name])
 
-    def _populate_host_palette_definitions(self) -> None:
-        """Pre-populates host-specific palette entries."""
+    def _populate_host_fg_colors(self) -> None:
+        """Assign each host a foreground color for its palette entry."""
         if self.light_theme:
-            # Use darker colors for light theme
-            URWID_FG_COLORS = [
+            fg_colors = [
                 "dark red",
                 "dark green",
                 "dark blue",
@@ -347,39 +345,33 @@ class AnantaUrwidTUI:
                 "brown",
                 "black",
             ]
-            COLORS_CYCLE = _make_color_cycle(URWID_FG_COLORS)
         else:
-            # Use lighter colors for dark theme (original behavior)
-            URWID_FG_COLORS = [
+            # dark colors are not used to avoid confusion with similarity of colors
+            fg_colors = [
                 "yellow",
                 "light red",
                 "light green",
                 "light blue",
                 "light magenta",
                 "light cyan",
-            ]  # dark colors are not used to avoid confusion with similarity of colors
-            COLORS_CYCLE = _make_color_cycle(URWID_FG_COLORS)
+            ]
 
+        color_cycle = _make_color_cycle(fg_colors)
         for host_name, *_ in self.hosts:
             attr_name = self._get_host_attr_name(host_name)
-            if attr_name not in self.host_palette_definitions:
-                fg_color = next(COLORS_CYCLE)
-                self.host_palette_definitions[attr_name] = (
-                    attr_name,
-                    fg_color,
-                    "default",
-                    None,
-                    None,
-                    None,
-                )
+            if attr_name not in self.host_fg_colors:
+                self.host_fg_colors[attr_name] = next(color_cycle)
 
-    def _build_palette(self) -> List[Tuple[str | None, ...]]:
+    def _build_palette(self) -> list[tuple[str | None, ...]]:
         """Build the complete palette for Urwid, including default and host-specific styles."""
         palette = list(self.DEFAULT_PALETTE)
-        palette.extend(self.host_palette_definitions.values())
+        palette.extend(
+            (attr_name, fg_color, "default", None, None, None)
+            for attr_name, fg_color in self.host_fg_colors.items()
+        )
 
         seen_names = set()
-        unique_palette: List[Tuple[str | None, ...]] = []
+        unique_palette: list[tuple[str | None, ...]] = []
         for entry in reversed(palette):
             if isinstance(entry, tuple) and entry[0] is not None:
                 if entry[0] not in seen_names:
@@ -389,7 +381,7 @@ class AnantaUrwidTUI:
         return unique_palette
 
     def add_output(
-        self, message_parts: List[Any] | str, scroll: bool = True
+        self, message_parts: list[Any] | str, scroll: bool = True
     ) -> None:
         """Add output to the display."""
         if self.is_exiting and not any(
@@ -546,6 +538,27 @@ class AnantaUrwidTUI:
                     prompt + [("status_error", "Not connected, skipping.")]
                 )
 
+    def _display_stream_line(
+        self,
+        host_name: str,
+        prompt: list[tuple[str, str]],
+        line_data: str,
+    ) -> None:
+        """Convert one streamed output line to Urwid markup and display it.
+
+        The per-host ANSI state persists across lines so SGR attributes
+        carry over just like in a real terminal.
+        """
+        host_state = self._ansi_states.get(host_name, _AnsiState())
+        markup, host_state = ansi_to_urwid_markup(
+            line_data.rstrip("\r\n"), host_state
+        )
+        self._ansi_states[host_name] = host_state
+        if markup:
+            self.add_output(prompt + markup)
+        elif self.allow_empty_line and line_data.strip() == "":
+            self.add_output(prompt + [""])
+
     async def run_command_on_host(
         self,
         host_name: str,
@@ -593,41 +606,21 @@ class AnantaUrwidTUI:
 
         try:
             if self.separate_output:
-                collected_output: List[str] = []
+                # Buffer every line first, then render as one block per host.
+                buffered_lines: list[str] = []
                 while not self.is_exiting:
                     line_data = await output_queue.get()
                     if line_data is None:
                         break
-                    collected_output.append(line_data)
-                host_state = self._ansi_states.get(host_name, _AnsiState())
-                for line_data in collected_output:
-                    markup, host_state = ansi_to_urwid_markup(
-                        line_data.rstrip("\r\n"), host_state
-                    )
-                    self._ansi_states[host_name] = host_state
-                    if markup:
-                        self.add_output(prompt + markup)
-                    elif self.allow_empty_line and line_data.strip() == "":
-                        self.add_output(prompt + [""])
+                    buffered_lines.append(line_data)
+                for line_data in buffered_lines:
+                    self._display_stream_line(host_name, prompt, line_data)
             else:
                 while not self.is_exiting:
                     line_data = await output_queue.get()
                     if line_data is None:
                         break
-
-                    host_state = self._ansi_states.get(host_name, _AnsiState())
-                    markup, host_state = ansi_to_urwid_markup(
-                        line_data.rstrip("\r\n"), host_state
-                    )
-                    self._ansi_states[host_name] = host_state
-                    if markup:
-                        self.add_output(prompt + markup)
-                    elif (
-                        self.allow_empty_line
-                        and line_data.strip() == ""
-                        and not markup
-                    ):
-                        self.add_output(prompt + [""])
+                    self._display_stream_line(host_name, prompt, line_data)
 
         except Exception as e:
             if not self.is_exiting:
@@ -661,12 +654,12 @@ class AnantaUrwidTUI:
                 0, self._request_draw
             )
 
-    def handle_input(self, key: str | Tuple[str, int, int, int]) -> bool | None:
+    def handle_input(self, key: str | tuple[str, int, int, int]) -> bool | None:
         """Handle user input from the keyboard."""
+        # Note: prompt color refreshes are handled by RefreshingPile.keypress,
+        # which every keypress passes through.
         if self.is_exiting:
             return True
-
-        self.update_prompt_attribute()
 
         if key == "enter":
             self.process_command(self.input_field.edit_text)
@@ -709,7 +702,7 @@ class AnantaUrwidTUI:
                     + [("status_neutral", "Closing...")]
                 )
                 close_conn_tasks.append(
-                    asyncio.create_task(self._close_single_connection(conn))
+                    asyncio.create_task(_close_ssh_connection(conn))
                 )
 
         if close_conn_tasks:
@@ -739,13 +732,6 @@ class AnantaUrwidTUI:
 
         if self.loop and self.loop.event_loop:
             self.loop.event_loop.alarm(0, self._direct_exit_loop)
-
-    async def _close_single_connection(
-        self,
-        conn: asyncssh.SSHClientConnection,
-    ) -> None:
-        """Close a single SSH connection gracefully."""
-        await _close_ssh_connection(conn)
 
     def _initial_setup_tasks(self, *_args: Any) -> None:
         """Perform initial setup tasks after the main loop starts."""
@@ -778,11 +764,7 @@ class AnantaUrwidTUI:
             unhandled_input=self.handle_input,
         )
 
-        self.main_pile.focus_position = 2
-        if isinstance(self.input_wrapper, urwid.Columns):
-            self.input_wrapper.focus_position = 1
-        elif hasattr(self.input_wrapper, "focus_col"):
-            self.input_wrapper.focus_col = 1
+        self.input_wrapper.focus_position = 1
 
         try:
             self.loop.screen.set_terminal_properties(colors=256)  # type: ignore

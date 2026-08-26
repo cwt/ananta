@@ -1,7 +1,12 @@
 import csv
 import os
 import sys
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
+
+from . import UNSPECIFIED_KEY_PATH
+
+# A host record: (name, ip/hostname, ssh port, username, key_path, timeout, retries)
+Host = tuple[str, str, int, str, str, float, int]
 
 # Conditional import for TOML parsing
 if sys.version_info >= (3, 11):
@@ -13,7 +18,7 @@ else:
         tomllib = None  # type: ModuleType | None
 
 
-def _load_toml_data(toml_file_path: str) -> Dict[str, Any]:
+def _load_toml_data(toml_file_path: str) -> dict[str, Any]:
     """
     Loads data from a TOML file using the appropriate library (tomllib or tomli).
     Raises RuntimeError if tomli is needed but not installed on Python < 3.11.
@@ -55,13 +60,11 @@ def _validate_retries(retries: int) -> int:
     return retries
 
 
-def _deduplicate_hosts(
-    hosts: List[Tuple[str, str, int, str, str, float, int]],
-) -> List[Tuple[str, str, int, str, str, float, int]]:
+def _deduplicate_hosts(hosts: list[Host]) -> list[Host]:
     """Detect and rename duplicate host names with a numeric suffix."""
-    seen_counts: Dict[str, int] = {}
-    assigned_names: Set[str] = set()
-    result: List[Tuple[str, str, int, str, str, float, int]] = []
+    seen_counts: dict[str, int] = {}
+    assigned_names: set[str] = set()
+    result: list[Host] = []
     for host in hosts:
         name = host[0]
         if name in assigned_names or name in seen_counts:
@@ -83,14 +86,25 @@ def _deduplicate_hosts(
     return result
 
 
+def _finalize_hosts(
+    hosts: list[Host],
+) -> tuple[list[Host], int]:
+    """Deduplicate hosts and compute the display width of the longest name."""
+    if not hosts:
+        return [], 0
+    hosts = _deduplicate_hosts(hosts)
+    max_name_length = max(len(name) for name, *_ in hosts)
+    return hosts, max_name_length
+
+
 def _get_hosts_from_toml(
     toml_file_path: str, host_tags_filter_str: str | None
-) -> Tuple[List[Tuple[str, str, int, str, str, float, int]], int]:
+) -> tuple[list[Host], int]:
     """
     Reads hosts from a TOML file and returns a list of tuples with host details.
     """
-    hosts_to_execute: List[Tuple[str, str, int, str, str, float, int]] = []
-    active_tags_filter: Set[str] = (
+    hosts_to_execute: list[Host] = []
+    active_tags_filter: set[str] = (
         set(host_tags_filter_str.split(",")) if host_tags_filter_str else set()
     )
 
@@ -127,10 +141,10 @@ def _get_hosts_from_toml(
         default_port = 22
 
     default_username: str | None = defaults.get("username")
-    default_key_path: str = defaults.get("key_path", "#")
+    default_key_path: str = defaults.get("key_path", UNSPECIFIED_KEY_PATH)
 
     # default tags won't be overridden but got appended by host-specific tags
-    default_tags: List[str] = defaults.get("tags", [])
+    default_tags: list[str] = defaults.get("tags", [])
     if not isinstance(default_tags, list) or not all(
         isinstance(tag, str) for tag in default_tags
     ):
@@ -205,7 +219,7 @@ def _get_hosts_from_toml(
                     f"Warning: Invalid retries for host '{host_name}' in '{toml_file_path}', using {default_retries}"
                 )
                 retries = default_retries
-            current_host_tags_list: List[str] = host_config.get("tags", [])
+            current_host_tags_list: list[str] = host_config.get("tags", [])
             if not isinstance(current_host_tags_list, list) or not all(
                 isinstance(tag, str) for tag in current_host_tags_list
             ):
@@ -248,21 +262,17 @@ def _get_hosts_from_toml(
                 f"host '{host_name}': {e}. Skipping!"
             )
 
-    if hosts_to_execute:
-        hosts_to_execute = _deduplicate_hosts(hosts_to_execute)
-        max_name_length = max(len(name) for name, *_ in hosts_to_execute)
-        return hosts_to_execute, max_name_length
-    return [], 0
+    return _finalize_hosts(hosts_to_execute)
 
 
 def _get_hosts_from_csv(
     csv_file_path: str, host_tags_filter_str: str | None
-) -> Tuple[List[Tuple[str, str, int, str, str, float, int]], int]:
+) -> tuple[list[Host], int]:
     """
     Reads hosts from a CSV file and returns a list of tuples with host details.
     """
-    hosts_to_execute: List[Tuple[str, str, int, str, str, float, int]] = []
-    active_tags_filter: Set[str] = (
+    hosts_to_execute: list[Host] = []
+    active_tags_filter: set[str] = (
         set(host_tags_filter_str.split(",")) if host_tags_filter_str else set()
     )
 
@@ -323,16 +333,12 @@ def _get_hosts_from_csv(
         )
         return [], 0
 
-    if hosts_to_execute:
-        hosts_to_execute = _deduplicate_hosts(hosts_to_execute)
-        max_name_length = max(len(name) for name, *_ in hosts_to_execute)
-        return hosts_to_execute, max_name_length
-    return [], 0
+    return _finalize_hosts(hosts_to_execute)
 
 
 def get_hosts(
     host_file_path: str, host_tags: str | None
-) -> Tuple[List[Tuple[str, str, int, str, str, float, int]], int]:
+) -> tuple[list[Host], int]:
     """
     Reads hosts from a file (TOML or CSV) and returns a list of tuples with host details.
     """
