@@ -3,6 +3,12 @@ import os
 
 import asyncssh
 
+from ananta.host_keys import (
+    HostKeyChangedError,
+    HostKeyPolicy,
+    _host_entry_name,
+    make_client_factory,
+)
 from ananta.output import get_end_marker
 
 from . import LINES, UNSPECIFIED_KEY_PATH
@@ -15,8 +21,13 @@ async def retry_connect(
     client_keys: list[str],
     timeout: float,
     max_retries: int,
+    policy: HostKeyPolicy,
 ) -> asyncssh.SSHClientConnection:
-    """Attempt to establish an SSH connection with retries."""
+    """Attempt to establish an SSH connection with retries.
+
+    Host-key verification is delegated to ``policy`` via a custom asyncssh
+    client hook; a detected key change fails fast without retries.
+    """
     last_error: asyncssh.Error | asyncio.TimeoutError | None = None
     algorithm_options = {
         "encryption_algs": [
@@ -28,7 +39,9 @@ async def retry_connect(
         ],
         "mac_algs": ["hmac-sha2-256", "hmac-sha1"],
     }  # try with the lowest latency algorithm first
+    entry = _host_entry_name(ip_address, ssh_port)
     for attempt in range(max_retries + 1):
+        mismatches_seen = len(policy.mismatches)
         try:
             return await asyncio.wait_for(
                 asyncssh.connect(
@@ -36,14 +49,22 @@ async def retry_connect(
                     port=ssh_port,
                     username=username,
                     client_keys=client_keys,
-                    known_hosts=None,
+                    known_hosts=None,  # built-in check off; our client hook verifies
                     compression_algs=None,
+                    client_factory=make_client_factory(
+                        policy, entry, ip_address
+                    ),
                     **algorithm_options,
                 ),
                 timeout=timeout,
             )
         except asyncssh.Error as error:
             last_error = error
+            if len(policy.mismatches) > mismatches_seen:
+                # Deterministic security failure: retrying cannot help.
+                raise HostKeyChangedError(
+                    f"HOST KEY MISMATCH for {ip_address}: refusing to connect"
+                ) from error
             _sleep = 1
             if (
                 getattr(error, "code", None)
@@ -102,11 +123,23 @@ async def establish_ssh_connection(
     default_key: str | None,
     timeout: float = 5.0,
     max_retries: int = 2,
+    policy: HostKeyPolicy | None = None,
 ) -> asyncssh.SSHClientConnection:
     """Establish an SSH connection to the remote host."""
     client_keys = get_ssh_keys(key_path, default_key)
+    if policy is None:
+        # Direct/test-use fallback only; application entry points always
+        # supply a session-wide policy so every connection is verified.
+        # devnull is empty => every host is TOFU-trusted, nothing persisted.
+        policy = HostKeyPolicy(known_hosts_path=os.devnull)
     return await retry_connect(
-        ip_address, ssh_port, username, client_keys, timeout, max_retries
+        ip_address,
+        ssh_port,
+        username,
+        client_keys,
+        timeout,
+        max_retries,
+        policy,
     )
 
 
@@ -212,22 +245,29 @@ async def execute(
     color: bool,
     timeout: float,
     max_retries: int,
+    policy: HostKeyPolicy | None = None,
+    conn: asyncssh.SSHClientConnection | None = None,
 ) -> None:
-    """Execute the SSH command on the remote host and handle the output."""
+    """Execute the SSH command on the remote host and handle the output.
+
+    When ``conn`` is supplied (the pre-flight phase already established it),
+    connection setup is skipped entirely.
+    """
     # Clamp to a sane minimum for narrow terminals or very long host names.
     remote_width = max(local_display_width - max_name_length - 3, 10)
-    conn = None
 
     try:
-        conn = await establish_ssh_connection(
-            ip_address,
-            ssh_port,
-            username,
-            key_path,
-            default_key,
-            timeout,
-            max_retries,
-        )
+        if conn is None:
+            conn = await establish_ssh_connection(
+                ip_address,
+                ssh_port,
+                username,
+                key_path,
+                default_key,
+                timeout,
+                max_retries,
+                policy,
+            )
         if separate_output:
             output = await execute_command(
                 conn, ssh_command, remote_width, color

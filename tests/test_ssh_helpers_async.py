@@ -4,13 +4,21 @@ from unittest.mock import AsyncMock, patch
 import asyncssh
 import pytest
 
+from ananta.host_keys import HostKeyPolicy
 from ananta.ssh import retry_connect
 
 # Mark all tests in this file as asyncio tests
 pytestmark = pytest.mark.asyncio
 
 
-async def test_retry_connect_success():
+@pytest.fixture
+def host_key_policy(tmp_path):
+    """Empty known_hosts in a temp dir: every connect is TOFU-trusted,
+    nothing touches the real ~/.ssh/known_hosts."""
+    return HostKeyPolicy(known_hosts_path=tmp_path / "known_hosts")
+
+
+async def test_retry_connect_success(host_key_policy):
     with patch("ananta.ssh.asyncssh.connect", new=AsyncMock()) as mock_connect:
         mock_connect.return_value = AsyncMock(spec=asyncssh.SSHClientConnection)
         conn = await retry_connect(
@@ -20,12 +28,13 @@ async def test_retry_connect_success():
             client_keys=["/key"],
             timeout=0.1,
             max_retries=2,
+            policy=host_key_policy,
         )
         assert mock_connect.call_count == 1
         assert isinstance(conn, AsyncMock)
 
 
-async def test_retry_connect_success_on_first_attempt():
+async def test_retry_connect_success_on_first_attempt(host_key_policy):
     """Tests successful connection on the first attempt."""
     # Create an AsyncMock for asyncssh.connect
     with patch(
@@ -43,6 +52,7 @@ async def test_retry_connect_success_on_first_attempt():
             client_keys=["/key"],
             timeout=0.1,  # Short timeout for testing
             max_retries=2,
+            policy=host_key_policy,
         )
 
         # Assertions
@@ -52,7 +62,7 @@ async def test_retry_connect_success_on_first_attempt():
         )  # Ensure the connection object is returned
 
 
-async def test_retry_connect_success_after_one_retry_timeout():
+async def test_retry_connect_success_after_one_retry_timeout(host_key_policy):
     """Tests successful connection after one retry due to TimeoutError."""
     with (
         patch(
@@ -74,6 +84,7 @@ async def test_retry_connect_success_after_one_retry_timeout():
             client_keys=["/key"],
             timeout=0.1,
             max_retries=2,
+            policy=host_key_policy,
         )
 
         assert mock_connect.call_count == 2  # Called twice (initial + 1 retry)
@@ -83,7 +94,7 @@ async def test_retry_connect_success_after_one_retry_timeout():
         assert conn == mock_connection_object
 
 
-async def test_retry_connect_fails_after_all_retries_timeout():
+async def test_retry_connect_fails_after_all_retries_timeout(host_key_policy):
     """Tests connection failure after all retries due to consistent TimeoutError."""
     with (
         patch(
@@ -106,6 +117,7 @@ async def test_retry_connect_fails_after_all_retries_timeout():
                 client_keys=["/key"],
                 timeout=0.1,
                 max_retries=max_retries,
+                policy=host_key_policy,
             )
 
         assert "timed out after 0.1s" in str(excinfo.value)
@@ -113,7 +125,7 @@ async def test_retry_connect_fails_after_all_retries_timeout():
         assert mock_sleep.call_count == max_retries  # Slept before each retry
 
 
-async def test_retry_connect_fails_after_all_retries_ssh_error():
+async def test_retry_connect_fails_after_all_retries_ssh_error(host_key_policy):
     """Tests connection failure after all retries due to consistent asyncssh.Error."""
     with (
         patch(
@@ -139,6 +151,7 @@ async def test_retry_connect_fails_after_all_retries_ssh_error():
                 client_keys=["/key"],
                 timeout=0.1,
                 max_retries=max_retries,
+                policy=host_key_policy,
             )
 
         # The final error message should contain the last error raised by asyncssh.connect
@@ -149,7 +162,9 @@ async def test_retry_connect_fails_after_all_retries_ssh_error():
         assert mock_sleep.call_count == max_retries
 
 
-async def test_retry_connect_key_exchange_failure_then_fails_again():
+async def test_retry_connect_key_exchange_failure_then_fails_again(
+    host_key_policy,
+):
     """Tests key exchange failure, retry with different algos, then another failure."""
     with (
         patch(
@@ -181,6 +196,7 @@ async def test_retry_connect_key_exchange_failure_then_fails_again():
                 client_keys=["/key"],
                 timeout=0.1,
                 max_retries=max_retries,
+                policy=host_key_policy,
             )
 
         assert f"Error connecting to 10.0.0.1: {final_error}" in str(
@@ -213,7 +229,7 @@ async def test_retry_connect_key_exchange_failure_then_fails_again():
         )  # Sleep 0 after key exchange failure
 
 
-async def test_retry_connect_key_exchange_failure_then_success():
+async def test_retry_connect_key_exchange_failure_then_success(host_key_policy):
     """Tests key exchange failure, then success on retry with different algos."""
     with (
         patch(
@@ -244,6 +260,7 @@ async def test_retry_connect_key_exchange_failure_then_success():
             client_keys=["/key"],
             timeout=0.1,
             max_retries=max_retries,
+            policy=host_key_policy,
         )
 
         assert conn == mock_successful_connection
@@ -258,7 +275,7 @@ async def test_retry_connect_key_exchange_failure_then_success():
         assert "encryption_algs" not in second_call_kwargs
 
 
-async def test_retry_connect_no_retries_on_success():
+async def test_retry_connect_no_retries_on_success(host_key_policy):
     """Tests that no retries occur if the first connection attempt is successful (max_retries=0)."""
     with patch(
         "ananta.ssh.asyncssh.connect", new_callable=AsyncMock
@@ -273,12 +290,15 @@ async def test_retry_connect_no_retries_on_success():
             client_keys=["/key"],
             timeout=0.1,
             max_retries=0,  # No retries allowed
+            policy=host_key_policy,
         )
         assert mock_connect.call_count == 1
         assert conn == mock_connection_object
 
 
-async def test_retry_connect_fails_immediately_if_no_retries_allowed_timeout():
+async def test_retry_connect_fails_immediately_if_no_retries_allowed_timeout(
+    host_key_policy,
+):
     """Tests immediate failure with TimeoutError if max_retries is 0."""
     with patch(
         "ananta.ssh.asyncssh.connect", new_callable=AsyncMock
@@ -293,12 +313,15 @@ async def test_retry_connect_fails_immediately_if_no_retries_allowed_timeout():
                 client_keys=["/key"],
                 timeout=0.1,
                 max_retries=0,
+                policy=host_key_policy,
             )
         assert "timed out after 0.1s" in str(excinfo.value)
         assert mock_connect.call_count == 1
 
 
-async def test_retry_connect_fails_immediately_if_no_retries_allowed_ssh_error():
+async def test_retry_connect_fails_immediately_if_no_retries_allowed_ssh_error(
+    host_key_policy,
+):
     """Tests immediate failure with asyncssh.Error if max_retries is 0."""
     with patch(
         "ananta.ssh.asyncssh.connect", new_callable=AsyncMock
@@ -316,6 +339,7 @@ async def test_retry_connect_fails_immediately_if_no_retries_allowed_ssh_error()
                 client_keys=["/key"],
                 timeout=0.1,
                 max_retries=0,
+                policy=host_key_policy,
             )
         assert f"Error connecting to 10.0.0.1: {simulated_error}" in str(
             excinfo.value

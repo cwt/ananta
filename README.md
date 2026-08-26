@@ -11,6 +11,7 @@ Initially, this project was named Hydra, referencing the many-headed serpent in 
 ## Features
 
 - Concurrent execution of commands across multiple remote hosts
+- Mandatory SSH host-key verification against `~/.ssh/known_hosts` (unknown hosts are trusted on first use and reported; key changes abort the batch before anything runs)
 - Flexible host list configuration in **TOML** or **CSV** format
 - SSH authentication with public key support
 - Lightweight and user-friendly command-line interface
@@ -213,8 +214,27 @@ $ ananta --tui -t web,db hosts.toml "df -h"
 - `-c, --allow-cursor-control`: Enable cursor control codes (e.g., for `fastfetch` or `neofetch`)
 - `-v, --version`: Display the Ananta version
 - `-k, --default-key`: Specify the default SSH private key
+- `--override-mismatched-keys`: After a host-key mismatch, allow re-trusting the presented keys (requires typing `CONFIRM` once)
 - `--tui`: Launch the Text User Interface (TUI) mode
 - `--tui-light`: Launch the Text User Interface (TUI) mode with light theme for light terminal backgrounds
+
+### Host-Key Verification
+
+Ananta always verifies each server's host key against `~/.ssh/known_hosts`
+before running any command:
+
+- **Known key, matches** — connects normally.
+- **Unknown host** — trusted on first use: the key is appended to your
+  `known_hosts` file and a fingerprint summary is printed when the session ends.
+- **Key changed since last connection** — that host is refused (no retries),
+  the whole batch is aborted *before any command executes* (exit code 3),
+  and both the recorded and presented fingerprints are shown. This protects
+  you from man-in-the-middle attacks and prevents partially-applied changes
+  across a fleet.
+
+After verifying a key change out-of-band (server rebuild, etc.), you can
+accept it by re-running with `--override-mismatched-keys` and typing
+`CONFIRM` at the prompt.
 
 ### Demo
 

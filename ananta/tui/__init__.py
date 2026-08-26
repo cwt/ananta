@@ -13,6 +13,7 @@ import asyncssh
 import urwid
 
 from ..config import get_hosts
+from ..host_keys import HostKeyChangedError, HostKeyPolicy
 from ..output import _make_color_cycle
 from ..ssh import (
     _close_ssh_connection,
@@ -245,6 +246,8 @@ class AnantaUrwidTUI:
         self.connections: dict[str, asyncssh.SSHClientConnection | None] = {
             host[0]: None for host in self.hosts
         }
+        # Mandatory host-key verification shared across all connections.
+        self.host_key_policy = HostKeyPolicy()
         self.output_queues: dict[str, asyncio.Queue[str | None]] = {
             host[0]: asyncio.Queue() for host in self.hosts
         }
@@ -479,7 +482,25 @@ class AnantaUrwidTUI:
 
         try:
             conn = await establish_ssh_connection(
-                ip, port, user, key, self.default_key, timeout, retries
+                ip,
+                port,
+                user,
+                key,
+                self.default_key,
+                timeout,
+                retries,
+                policy=self.host_key_policy,
+            )
+        except HostKeyChangedError as e:
+            self.connections[host_name] = None
+            self.add_output(
+                prompt
+                + [
+                    (
+                        "status_error",
+                        f"HOST KEY MISMATCH - not connected. {e}",
+                    )
+                ]
             )
         except Exception as e:
             self.connections[host_name] = None
