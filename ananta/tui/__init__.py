@@ -454,11 +454,16 @@ class AnantaUrwidTUI:
     def _request_draw(self, *_args: Any) -> None:
         """Request a redraw of the screen."""
         try:
-            if self.loop:
+            if self.loop and not (
+                self.is_exiting
+                and self.asyncio_loop
+                and self.asyncio_loop.is_closed()
+            ):
                 self.loop.draw_screen()
-        except BlockingIOError:
-            pass  # Ignore if the screen is busy
+        except (BlockingIOError, OSError):
+            pass  # Screen busy or terminal already tearing down; skip.
         finally:
+            # Allow later output events to reschedule a clean redraw.
             self.draw_screen_handle = None
 
     async def connect_host(

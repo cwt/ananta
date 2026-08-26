@@ -394,3 +394,29 @@ def test_run_cli_unresolvable_width_defaults_to_80(
 
     args, kwargs = mock_main_func.call_args  # noqa
     assert args[2] == 80
+
+
+def test_importing_ananta_does_not_install_global_warning_filters():
+    """Regression: importing ananta must be side-effect free with respect to
+    the warnings system. Previously the package installed a process-wide
+    DeprecationWarning filter at import time, hiding deprecations from every
+    importer."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, warnings\n"
+        "before = list(warnings.filters)\n"
+        "import ananta\n"
+        "added = [f for f in warnings.filters if f not in before]\n"
+        "bad = [\n"
+        "    f for f in added\n"
+        "    if f[0] == 'ignore' and f[2] is DeprecationWarning\n"
+        "]\n"
+        "sys.exit(1 if bad else 0)\n"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True)
+    assert result.returncode == 0, (
+        "Importing ananta installed a global warning filter: "
+        + result.stderr.decode()
+    )

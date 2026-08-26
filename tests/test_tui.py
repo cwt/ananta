@@ -362,3 +362,40 @@ def test_host_attr_names_unique_across_sanitized_collisions(mock_tui):
     assert name_c not in (name_a, name_b)
     # Stable across repeated lookups.
     assert tui._get_host_attr_name("web-1") == name_a
+
+
+class TestRequestDrawErrorHandling:
+    """Deferred redraws must survive transient terminal errors."""
+
+    def _armed_tui(self, mock_tui):
+        mock_tui.draw_screen_handle = "pending-alarm"
+        return mock_tui
+
+    def test_blocking_io_error_is_swallowed(self, mock_tui):
+        tui = self._armed_tui(mock_tui)
+        tui.loop.draw_screen.side_effect = BlockingIOError
+        tui._request_draw()
+        assert tui.draw_screen_handle is None
+
+    def test_os_error_is_swallowed(self, mock_tui):
+        """Regression: teardown-time OSErrors must not kill the app."""
+        tui = self._armed_tui(mock_tui)
+        tui.loop.draw_screen.side_effect = OSError("fd gone")
+        tui._request_draw()
+        assert tui.draw_screen_handle is None
+
+    def test_unexpected_errors_still_propagate(self, mock_tui):
+        """Real rendering bugs must remain visible, not silently eaten."""
+        tui = self._armed_tui(mock_tui)
+        tui.loop.draw_screen.side_effect = ValueError("boom")
+        with pytest.raises(ValueError):
+            tui._request_draw()
+        # Handle still reset so later events can reschedule a redraw.
+        assert tui.draw_screen_handle is None
+
+    def test_skips_drawing_after_shutdown(self, mock_tui):
+        tui = self._armed_tui(mock_tui)
+        tui.is_exiting = True
+        tui.asyncio_loop.is_closed.return_value = True
+        tui._request_draw()
+        tui.loop.draw_screen.assert_not_called()
