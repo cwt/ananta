@@ -24,9 +24,6 @@ speed = [
 homepage = "https://github.com/cwt/ananta"
 repository = "https://github.com/cwt/ananta"
 
-[tool.poetry.urls]
-"Sourcehut Mirror" = "https://sr.ht/~cwt/ananta/"
-
 [tool.poetry.scripts]
 ananta = "ananta.ananta:run_cli"
 
