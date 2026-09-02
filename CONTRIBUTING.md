@@ -143,7 +143,7 @@ Be respectful and inclusive in all interactions. We follow a [simplified open-so
 
 ## Questions?
 
-If you have questions or need help, open an issue on [GitHub](https://github.com/cwt/ananta) or reach out via the [Sourcehut mirror](https://sr.ht/~cwt/ananta/). We’re excited to have you contribute to Ananta!
+If you have questions or need help, open an issue on [GitHub](https://github.com/cwt/ananta). We’re excited to have you contribute to Ananta!
 
 ---
 
