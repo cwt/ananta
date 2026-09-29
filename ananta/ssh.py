@@ -211,14 +211,15 @@ async def stream_command_output(
     finally:
         if process:
             try:
-                process.terminate()
-                await asyncio.wait_for(process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+                if not isinstance(getattr(process, "exit_status", None), int):
+                    process.terminate()
+                    await asyncio.wait_for(process.wait(), timeout=5.0)
+            except (asyncio.TimeoutError, OSError):
                 # If the process doesn't terminate gracefully, force close
-                process.close()
                 try:
+                    process.close()
                     await asyncio.wait_for(process.wait(), timeout=2.0)
-                except asyncio.TimeoutError:
+                except (asyncio.TimeoutError, OSError):
                     pass  # Process didn't close even after force close
 
 

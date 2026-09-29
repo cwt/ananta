@@ -152,6 +152,27 @@ async def test_stream_command_output_asyncssh_error():
     )
 
 
+async def test_stream_command_output_terminate_os_error_is_caught():
+    """Test stream_command_output gracefully handles OSError when terminating."""
+    mock_conn = AsyncMock()
+    mock_process = AsyncMock()
+    mock_process.terminate = MagicMock(side_effect=OSError("Channel closed"))
+    mock_process.close = MagicMock(side_effect=OSError("Already closed"))
+    mock_process.wait = AsyncMock()
+    mock_process.__aenter__.return_value = mock_process
+
+    async def async_iterator():
+        yield "output line"
+
+    mock_process.stdout = async_iterator()
+    mock_conn.create_process.return_value = mock_process
+    output_queue = AsyncMock(spec=asyncio.Queue)
+
+    # Must not raise OSError
+    await stream_command_output(mock_conn, "a command", 80, output_queue, True)
+    output_queue.put.assert_any_await("output line")
+
+
 @patch("ananta.ssh.establish_ssh_connection", new_callable=AsyncMock)
 async def test_execute_connection_error(mock_establish_conn):
     """Test execute handling a ConnectionError."""
