@@ -6,6 +6,7 @@ import pytest
 from ananta.host_keys import (
     HostKeyChangedError,
     HostKeyPolicy,
+    MismatchRecord,
     _host_entry_name,
     make_client_factory,
 )
@@ -350,6 +351,49 @@ async def test_retry_connect_raises_fast_on_mismatch(tmp_path, key_a):
             policy=HostKeyPolicy(known_hosts_path=kh),
         )
     assert calls["n"] == 1  # no retries on deterministic security failure
+
+
+async def test_retry_connect_unrelated_host_mismatch_does_not_blame_current_host(
+    tmp_path,
+):
+    """A mismatch on another host in the shared policy must not abort this host."""
+    from unittest.mock import patch
+
+    kh = tmp_path / "known_hosts"
+    kh.write_text("", encoding="utf-8")
+    policy = HostKeyPolicy(known_hosts_path=kh)
+
+    calls = {"n": 0}
+
+    async def fake_connect(**kwargs):
+        calls["n"] += 1
+        # Another host encounters a mismatch concurrently:
+        policy._mismatches.append(
+            MismatchRecord(
+                entry="10.0.0.99",
+                old_fingerprint="old",
+                new_fingerprint="new",
+                new_blob="blob",
+            )
+        )
+        raise asyncssh.PermissionDenied(reason="Authentication failed")
+
+    with (
+        patch("ananta.ssh.asyncssh.connect", side_effect=fake_connect),
+        pytest.raises(ConnectionError, match="Authentication failed"),
+    ):
+        await retry_connect(
+            ip_address="10.0.0.9",
+            ssh_port=22,
+            username="user",
+            client_keys=["/key"],
+            timeout=1,
+            max_retries=1,
+            policy=policy,
+        )
+    assert (
+        calls["n"] == 2
+    )  # Retried because it was an auth error, not this host's mismatch
 
 
 class TestAgainstRealSSHServer:

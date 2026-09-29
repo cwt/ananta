@@ -63,7 +63,8 @@ async def retry_connect(
             )
         except asyncssh.Error as error:
             last_error = error
-            if len(policy.mismatches) > mismatches_seen:
+            new_mismatches = policy.mismatches[mismatches_seen:]
+            if any(m.entry == entry for m in new_mismatches):
                 # Deterministic security failure: retrying cannot help.
                 raise HostKeyChangedError(
                     f"HOST KEY MISMATCH for {ip_address}: refusing to connect"
