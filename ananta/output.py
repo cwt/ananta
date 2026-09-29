@@ -138,7 +138,10 @@ async def print_output(
                 output = await output_queue.get()
                 if output is None:
                     break
-                buf.write(output)
+                if output:
+                    buf.write(
+                        output if output.endswith("\n") else f"{output}\n"
+                    )
 
             buf.seek(0)
             async with print_lock:

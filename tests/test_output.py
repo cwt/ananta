@@ -201,6 +201,36 @@ async def test_print_output_separate_output(capsys):
 
 
 @pytest.mark.asyncio
+async def test_print_output_separate_output_without_trailing_newline(capsys):
+    """Test print_output in separate mode when chunks lack trailing newlines."""
+    queue = AsyncMock()
+    queue.get.side_effect = [
+        "partial chunk without newline",
+        get_end_marker("host-1", 30, color=False),
+        None,
+    ]
+    lock = AsyncMock()
+    with patch("ananta.output.print") as mock_print:
+        await print_output(
+            host_name="host-1",
+            max_name_length=7,
+            allow_empty_line=True,
+            allow_cursor_control=False,
+            separate_output=True,
+            print_lock=lock,
+            output_queue=queue,
+            color=False,
+        )
+        expected_prompt = "[ host-1] "
+        mock_print.assert_any_call(
+            f"{expected_prompt}partial chunk without newline{RESET}"
+        )
+        mock_print.assert_any_call(
+            f"{expected_prompt}{get_end_marker('host-1', 30, color=False)}{RESET}"
+        )
+
+
+@pytest.mark.asyncio
 async def test_print_output_interleaved(capsys):
     """Test print_output with separate_output=False."""
     queue = AsyncMock()
