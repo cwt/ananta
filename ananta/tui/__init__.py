@@ -126,11 +126,6 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
                 return True
         return self._list_box.mouse_event(size, event, button, col, row, focus)
 
-    @property
-    def body(self) -> urwid.SimpleFocusListWalker:
-        """Provide access to the walker for external manipulation."""
-        return self._walker
-
 
 # --- Setup colors for hosts ---
 # Colors are now handled within the _populate_host_fg_colors method
