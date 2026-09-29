@@ -61,6 +61,19 @@ def _hashed_match(line_name: str, hostname: str) -> bool:
     return hmac.compare_digest(digest, expected)
 
 
+def _equivalent_entry_names(entry: str) -> set[str]:
+    """Return the set of equivalent known_hosts entry names for an entry."""
+    if entry.endswith("]:22"):
+        bare = entry[1:-4]
+        return {entry, bare, f"[{bare}]"}
+    elif entry.startswith("[") and entry.endswith("]"):
+        bare = entry[1:-1]
+        return {entry, bare, f"[{bare}]:22"}
+    elif not entry.startswith("["):
+        return {entry, f"[{entry}]:22", f"[{entry}]"}
+    return {entry}
+
+
 @dataclass
 class MismatchRecord:
     """Details about a host whose key differs from the recorded one."""
@@ -136,31 +149,15 @@ class HostKeyPolicy:
 
     def _find_recorded_blob(self, entry: str, hostname: str) -> str | None:
         """Look up the recorded key for an entry, honoring hashed names."""
-        blob = self._entries.get(entry)
-        if blob is not None:
-            return blob
-        # Port-22 entries can be stored bare ("host"), explicitly ("[host]:22"),
-        # or bracketed without port ("[host]").
-        if entry.endswith("]:22"):
-            bare = entry[1:-4]
-            blob = self._entries.get(bare) or self._entries.get(f"[{bare}]")
-            if blob is not None:
-                return blob
-        elif entry.startswith("[") and entry.endswith("]"):
-            bare = entry[1:-1]
-            blob = self._entries.get(bare) or self._entries.get(f"[{bare}]:22")
-            if blob is not None:
-                return blob
-        elif not entry.startswith("["):
-            explicit_22 = f"[{entry}]:22"
-            bracketed = f"[{entry}]"
-            blob = self._entries.get(explicit_22) or self._entries.get(
-                bracketed
-            )
+        aliases = _equivalent_entry_names(entry)
+        for alias in aliases:
+            blob = self._entries.get(alias)
             if blob is not None:
                 return blob
         for name, first_name in self._hashed_index:
-            if _hashed_match(name, entry) or _hashed_match(name, hostname):
+            if any(_hashed_match(name, a) for a in aliases) or _hashed_match(
+                name, hostname
+            ):
                 blob = self._entries.get(first_name)
                 if blob is not None:
                     # Cache positive match to avoid repeated linear scans
@@ -235,6 +232,9 @@ class HostKeyPolicy:
         """Replace every mismatched entry with its newly-presented key."""
         with self._lock:
             for record in self._mismatches:
+                aliases = _equivalent_entry_names(record.entry)
+                for a in aliases:
+                    self._entries.pop(a, None)
                 self._entries[record.entry] = record.new_blob
                 self._remove_entry_from_lines(record.entry)
                 new_line = f"{record.entry} {record.new_blob}"
@@ -249,22 +249,26 @@ class HostKeyPolicy:
         self._rewrite_file()
 
     def _remove_entry_from_lines(self, entry: str) -> None:
+        aliases = _equivalent_entry_names(entry)
         kept_lines: list[str] = []
         kept_index: list[list[str]] = []
         for line, names in zip(self._file_lines, self._line_index):
             matches_entry = False
             for name in names:
-                if name == entry:
+                if name in aliases:
                     matches_entry = True
                     break
-                if name.startswith("|1|") and _hashed_match(name, entry):
+                if name.startswith("|1|") and any(
+                    _hashed_match(name, a) for a in aliases
+                ):
                     matches_entry = True
                     break
             if matches_entry:
                 remaining: list[str] = []
                 for n in names:
-                    if n == entry or (
-                        n.startswith("|1|") and _hashed_match(n, entry)
+                    if n in aliases or (
+                        n.startswith("|1|")
+                        and any(_hashed_match(n, a) for a in aliases)
                     ):
                         continue
                     remaining.append(n)

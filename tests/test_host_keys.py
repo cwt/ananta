@@ -180,6 +180,30 @@ class TestOverrides:
         assert len(web_lines) == 1
         assert _openssh_blob(key_b).split(maxsplit=1)[1] in web_lines[0]
 
+    async def test_override_removes_port_22_bracketed_alias_lines(
+        self, tmp_path, key_a, key_b
+    ):
+        """Overriding a bare port 22 host must remove [host]:22 and [host] lines."""
+        old_blob = _openssh_blob(key_a).split(maxsplit=1)[1]
+        new_blob = _openssh_blob(key_b).split(maxsplit=1)[1]
+        kh = tmp_path / "known_hosts"
+        kh.write_text(
+            f"[web-01]:22 ssh-ed25519 {old_blob}\n"
+            f"[web-01] ssh-ed25519 {old_blob}\n",
+            encoding="utf-8",
+        )
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        assert policy.validate_key("web-01", "web-01", key_b) is False
+        assert policy.mismatches
+
+        policy.apply_overrides()
+
+        content = kh.read_text(encoding="utf-8")
+        assert old_blob not in content
+        assert new_blob in content
+        assert policy.validate_key("web-01", "web-01", key_b) is True
+        assert policy.validate_key("[web-01]:22", "web-01", key_b) is True
+
     async def test_override_preserves_other_lines(self, tmp_path, key_a, key_b):
         other_blob = _openssh_blob(key_a).split(maxsplit=1)[1]
         new_blob = _openssh_blob(key_b).split(maxsplit=1)[1]
