@@ -174,7 +174,10 @@ class HostKeyPolicy:
         self, entry: str, key: asyncssh.SSHKey, blob: str
     ) -> None:
         self._entries.setdefault(entry, blob)
-        self._append_to_file(f"{entry} {blob}")
+        new_line = f"{entry} {blob}"
+        self._append_to_file(new_line)
+        self._file_lines.append(new_line)
+        self._line_index.append([entry])
         self._added.append((entry, key.get_fingerprint()))
 
     def _append_to_file(self, line: str) -> None:
@@ -202,17 +205,38 @@ class HostKeyPolicy:
         with self._lock:
             for record in self._mismatches:
                 self._entries[record.entry] = record.new_blob
-                self._remove_entries_from_file(record.entry)
-                self._append_to_file(f"{record.entry} {record.new_blob}")
+                self._remove_entry_from_lines(record.entry)
+                new_line = f"{record.entry} {record.new_blob}"
+                self._file_lines.append(new_line)
+                self._line_index.append([record.entry])
                 self._overridden.add(record.entry)
             self._mismatches.clear()
+            self._rewrite_file()
 
     def _remove_entries_from_file(self, entry: str) -> None:
+        self._remove_entry_from_lines(entry)
+        self._rewrite_file()
+
+    def _remove_entry_from_lines(self, entry: str) -> None:
         kept_lines: list[str] = []
         kept_index: list[list[str]] = []
         for line, names in zip(self._file_lines, self._line_index):
-            if entry in names:
-                remaining = [n for n in names if n != entry]
+            matches_entry = False
+            for name in names:
+                if name == entry:
+                    matches_entry = True
+                    break
+                if name.startswith("|1|") and _hashed_match(name, entry):
+                    matches_entry = True
+                    break
+            if matches_entry:
+                remaining: list[str] = []
+                for n in names:
+                    if n == entry or (
+                        n.startswith("|1|") and _hashed_match(n, entry)
+                    ):
+                        continue
+                    remaining.append(n)
                 if not remaining:
                     continue  # Line belonged solely to this entry: drop it.
                 fields = line.split(maxsplit=1)
@@ -226,10 +250,10 @@ class HostKeyPolicy:
             kept_index.append(names)
         self._file_lines = kept_lines
         self._line_index = kept_index
-        self._rewrite_file()
 
     def _rewrite_file(self) -> None:
         content = "".join(line + "\n" for line in self._file_lines)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_path = tempfile.mkstemp(
             dir=str(self.path.parent), prefix=".known_hosts."
         )

@@ -171,6 +171,86 @@ class TestOverrides:
         assert "@revoked *.revoked.com ssh-rsa BBBB..." in content
         assert f"target-host ssh-ed25519 {blob_b}" in content
 
+    async def test_apply_overrides_multiple_mismatches_preserves_all(
+        self, tmp_path, key_a
+    ):
+        blob_a = _openssh_blob(key_a).split(maxsplit=1)[1]
+        kh = tmp_path / "known_hosts"
+        kh.write_text(
+            f"host-alpha ssh-ed25519 {blob_a}\n"
+            f"host-beta ssh-ed25519 {blob_a}\n",
+            encoding="utf-8",
+        )
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        new_key_1 = asyncssh.generate_private_key("ssh-ed25519")
+        new_key_2 = asyncssh.generate_private_key("ssh-ed25519")
+        blob_new_1 = _openssh_blob(new_key_1).split(maxsplit=1)[1]
+        blob_new_2 = _openssh_blob(new_key_2).split(maxsplit=1)[1]
+
+        assert (
+            policy.validate_key("host-alpha", "host-alpha", new_key_1) is False
+        )
+        assert policy.validate_key("host-beta", "host-beta", new_key_2) is False
+        assert len(policy.mismatches) == 2
+
+        policy.apply_overrides()
+
+        content = kh.read_text(encoding="utf-8")
+        assert f"host-alpha ssh-ed25519 {blob_new_1}" in content
+        assert f"host-beta ssh-ed25519 {blob_new_2}" in content
+
+    async def test_apply_overrides_preserves_session_tofu_keys(
+        self, tmp_path, key_a, key_b
+    ):
+        blob_a = _openssh_blob(key_a).split(maxsplit=1)[1]
+        blob_b = _openssh_blob(key_b).split(maxsplit=1)[1]
+        kh = tmp_path / "known_hosts"
+        kh.write_text(
+            f"stale-host ssh-ed25519 {blob_a}\n",
+            encoding="utf-8",
+        )
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        tofu_key = asyncssh.generate_private_key("ssh-ed25519")
+        blob_tofu = _openssh_blob(tofu_key).split(maxsplit=1)[1]
+
+        assert policy.validate_key("tofu-host", "tofu-host", tofu_key) is True
+        assert policy.validate_key("stale-host", "stale-host", key_b) is False
+
+        policy.apply_overrides()
+
+        content = kh.read_text(encoding="utf-8")
+        assert f"tofu-host ssh-ed25519 {blob_tofu}" in content
+        assert f"stale-host ssh-ed25519 {blob_b}" in content
+
+    async def test_apply_overrides_replaces_hashed_entry(
+        self, tmp_path, key_a, key_b
+    ):
+        import base64
+        import hashlib
+        import hmac as hmac_mod
+
+        salt = b"0123456789abcdef"[:16]
+        digest = hmac_mod.new(salt, b"hashed-host", hashlib.sha1).digest()
+        hashed = (
+            "|1|"
+            + base64.b64encode(salt).decode()
+            + "|"
+            + base64.b64encode(digest).decode()
+        )
+        blob_a = _openssh_blob(key_a).split(maxsplit=1)[1]
+        blob_b = _openssh_blob(key_b).split(maxsplit=1)[1]
+
+        kh = tmp_path / "known_hosts"
+        kh.write_text(f"{hashed} ssh-ed25519 {blob_a}\n", encoding="utf-8")
+
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        assert policy.validate_key("hashed-host", "hashed-host", key_b) is False
+        policy.apply_overrides()
+
+        content = kh.read_text(encoding="utf-8")
+        assert hashed not in content
+        assert f"hashed-host ssh-ed25519 {blob_b}" in content
+
 
 class TestClientFactory:
     async def test_factory_wires_validation_hook(self, tmp_path, key_a, key_b):
@@ -216,17 +296,19 @@ async def test_retry_connect_raises_fast_on_mismatch(tmp_path, key_a):
         )
         raise asyncssh.Error(code=1, reason="host key verification failed")
 
-    with patch("ananta.ssh.asyncssh.connect", side_effect=fake_connect):
-        with pytest.raises(HostKeyChangedError):
-            await retry_connect(
-                ip_address="10.0.0.9",
-                ssh_port=22,
-                username="user",
-                client_keys=["/key"],
-                timeout=1,
-                max_retries=3,
-                policy=HostKeyPolicy(known_hosts_path=kh),
-            )
+    with (
+        patch("ananta.ssh.asyncssh.connect", side_effect=fake_connect),
+        pytest.raises(HostKeyChangedError),
+    ):
+        await retry_connect(
+            ip_address="10.0.0.9",
+            ssh_port=22,
+            username="user",
+            client_keys=["/key"],
+            timeout=1,
+            max_retries=3,
+            policy=HostKeyPolicy(known_hosts_path=kh),
+        )
     assert calls["n"] == 1  # no retries on deterministic security failure
 
 
@@ -283,7 +365,7 @@ class TestAgainstRealSSHServer:
         assert policy.added_keys[0][0].startswith("[127.0.0.1]:")
 
     async def test_mismatch_refuses_connection_without_retry(self, tmp_path):
-        server, server_key = await self.start_server(tmp_path)
+        server, _server_key = await self.start_server(tmp_path)
         port = server.sockets[0].getsockname()[1]
 
         # Seed known_hosts with a DIFFERENT key than the real server's.
