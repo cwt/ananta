@@ -728,20 +728,20 @@ class AnantaUrwidTUI:
             [("status_neutral", "All connections closed or timed out.")]
         )
 
-        if self.async_tasks:
+        tasks_to_cleanup = [t for t in self.async_tasks if not t.done()]
+        if tasks_to_cleanup:
             self.add_output(
                 [
                     (
                         "status_neutral",
-                        f"Cleaning up {len(self.async_tasks)} tasks...",
+                        f"Cleaning up {len(tasks_to_cleanup)} tasks...",
                     )
                 ]
             )
-            for task in list(self.async_tasks):
-                if not task.done():
-                    task.cancel()
-            await asyncio.gather(*self.async_tasks, return_exceptions=True)
-            self.async_tasks.clear()
+            for task in tasks_to_cleanup:
+                task.cancel()
+            await asyncio.gather(*tasks_to_cleanup, return_exceptions=True)
+        self.async_tasks.clear()
 
         self.add_output(
             [("status_neutral", "Cleanup complete. Ananta TUI will now exit.")]
