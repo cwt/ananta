@@ -471,3 +471,26 @@ class TestAgainstRealSSHServer:
             )
         # The mismatched key must not have been persisted.
         assert kh.read_text(encoding="utf-8") == f"[127.0.0.1]:{port} {blob}\n"
+
+
+async def test_parse_hashed_name_and_caching():
+    """Verify that _parse_hashed_name parses valid hashes and handles malformed input."""
+    import base64
+
+    from ananta.host_keys import _hashed_match, _parse_hashed_name
+
+    salt = b"0123456789abcdef"
+    expected = b"expecteddigest12"
+    b64_salt = base64.b64encode(salt).decode()
+    b64_digest = base64.b64encode(expected).decode()
+    valid_name = f"|1|{b64_salt}|{b64_digest}"
+
+    parsed = _parse_hashed_name(valid_name)
+    assert parsed is not None
+    assert parsed[0] == salt
+    assert parsed[1] == expected
+
+    # Malformed names
+    assert _parse_hashed_name("invalid") is None
+    assert _parse_hashed_name("|1|invalid_b64==|short") is None
+    assert _hashed_match("invalid", "host") is False

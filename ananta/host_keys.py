@@ -12,6 +12,7 @@ custom ``SSHClient.validate_host_public_key`` hook (see ``make_client_factory``)
 """
 
 import base64
+import functools
 import hashlib
 import hmac
 import os
@@ -37,14 +38,25 @@ class HostKeyChangedError(ConnectionError):
     """Raised when a server's host key differs from the recorded one."""
 
 
-def _hashed_match(line_name: str, hostname: str) -> bool:
-    """Check whether a hashed known_hosts entry (|1|salt|hash) matches."""
+@functools.lru_cache(maxsize=4096)
+def _parse_hashed_name(line_name: str) -> tuple[bytes, bytes] | None:
     parts = line_name.split("|")
+    if len(parts) < 4:
+        return None
     try:
         salt = base64.b64decode(parts[2])
         expected = base64.b64decode(parts[3])
+        return salt, expected
     except (IndexError, ValueError):
+        return None
+
+
+def _hashed_match(line_name: str, hostname: str) -> bool:
+    """Check whether a hashed known_hosts entry (|1|salt|hash) matches."""
+    parsed = _parse_hashed_name(line_name)
+    if parsed is None:
         return False
+    salt, expected = parsed
     digest = hmac.new(salt, hostname.encode(), hashlib.sha1).digest()
     return hmac.compare_digest(digest, expected)
 
@@ -79,6 +91,9 @@ class HostKeyPolicy:
         # Original file lines kept so overrides can rewrite surgically.
         self._file_lines: list[str] = []
         self._line_index: list[list[str]] = []  # names covered by each line
+        self._hashed_index: list[tuple[str, str]] = (
+            []
+        )  # (hashed_name, first_name)
 
         self._lock = threading.Lock()
         self._added: list[tuple[str, str]] = []  # (entry, fingerprint)
@@ -114,6 +129,8 @@ class HostKeyPolicy:
             self._line_index.append(names)
             for name in names:
                 self._entries.setdefault(name, blob)
+                if name.startswith("|1|"):
+                    self._hashed_index.append((name, names[0]))
 
     # --- lookup & decisions ----------------------------------------------
 
@@ -133,12 +150,14 @@ class HostKeyPolicy:
             blob = self._entries.get(explicit_22)
             if blob is not None:
                 return blob
-        for names in self._line_index:
-            for name in names:
-                if name.startswith("|1|") and (
-                    _hashed_match(name, entry) or _hashed_match(name, hostname)
-                ):
-                    return self._entries.get(names[0])
+        for name, first_name in self._hashed_index:
+            if _hashed_match(name, entry) or _hashed_match(name, hostname):
+                blob = self._entries.get(first_name)
+                if blob is not None:
+                    # Cache positive match to avoid repeated linear scans
+                    self._entries[entry] = blob
+                    self._entries[hostname] = blob
+                return blob
         return None
 
     @staticmethod
@@ -253,6 +272,12 @@ class HostKeyPolicy:
             kept_index.append(names)
         self._file_lines = kept_lines
         self._line_index = kept_index
+        self._hashed_index = [
+            (name, names[0])
+            for names in kept_index
+            for name in names
+            if name.startswith("|1|")
+        ]
 
     def _rewrite_file(self) -> None:
         content = "".join(line + "\n" for line in self._file_lines)
