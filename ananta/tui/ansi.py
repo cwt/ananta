@@ -81,14 +81,14 @@ class _AnsiState:
 _ANSI_CONTROL_SEQUENCES = re.compile(
     r"(?:[\x00-\x08\x0B\x0C\x0E-\x1A\x1C-\x1F]"
     r"|[\x80-\x9F]"
-    r"|\x1bP[^\x1b]*\x1b\\"
-    r"|\x1b_[^\x1b]*\x1b\\"
-    r"|\x1b\^[^\x1b]*\x1b\\)"
+    r"|\x1bP[^\x1b]*(?:\x1b\\|$)"
+    r"|\x1b_[^\x1b]*(?:\x1b\\|$)"
+    r"|\x1b\^[^\x1b]*(?:\x1b\\|$))"
 )
 _OSC_CONTROL_SEQUENCES = re.compile(
-    r"\x1b\][^\x07\x1b]*(\x07|\x1b\\)", re.DOTALL
+    r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)", re.DOTALL
 )
-_NON_SGR_CSI_SEQUENCES = re.compile(r"\x1b\[[0-9;?]*[A-LN-Za-ln-z]")
+_NON_SGR_CSI_SEQUENCES = re.compile(r"\x1b\[[0-9;?><=]*[A-Za-ln-z]")
 
 
 def _strip_ansi_control_sequences(text: str) -> str:
@@ -97,9 +97,10 @@ def _strip_ansi_control_sequences(text: str) -> str:
     Tabs are NOT handled here; they are expanded later on plain text segments.
     Importantly, \x1b (ESC) is NOT stripped by this function if it's part of an SGR.
     """
-    text = _ANSI_CONTROL_SEQUENCES.sub("", text)
     if "\x1b" in text:
         text = _OSC_CONTROL_SEQUENCES.sub("", text)
+    text = _ANSI_CONTROL_SEQUENCES.sub("", text)
+    if "\x1b" in text:
         text = _NON_SGR_CSI_SEQUENCES.sub("", text)
 
     if "\r" in text:

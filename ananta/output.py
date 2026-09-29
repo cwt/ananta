@@ -17,15 +17,26 @@ COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
 COLORS_CYCLE = _make_color_cycle(COLORS)
 HOST_COLOR: dict[str, str] = {}  # Dictionary to store host colors
 
-# Pattern to match common cursor control and screen clear ANSI codes
-ansi_cursor_control = re.compile(
-    r"\x1b\[(\d+)?[ABEFCDGHf]|"  # cursor movement + home(H) + HVP(f)
-    r"\x1b\[\d+;\d+[HF]|"  # cursor position
-    r"\x1b\[[?]\d+[hl]|"  # cursor visibility
-    r"\x1b\[[sSu]|"  # cursor save/restore
-    r"\x1b\[\d*J"  # screen clear
-    r"|\x1b\[\d*K"  # erase line (K not in movement class)
+# Patterns to match control and query ANSI codes
+_ANSI_CONTROL_SEQUENCES = re.compile(
+    r"(?:[\x00-\x08\x0B\x0C\x0E-\x1A\x1C-\x1F]"
+    r"|[\x80-\x9F]"
+    r"|\x1bP[^\x1b]*(?:\x1b\\|$)"
+    r"|\x1b_[^\x1b]*(?:\x1b\\|$)"
+    r"|\x1b\^[^\x1b]*(?:\x1b\\|$))"
 )
+_OSC_CONTROL_SEQUENCES = re.compile(
+    r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)", re.DOTALL
+)
+_NON_SGR_CSI_SEQUENCES = re.compile(r"\x1b\[[0-9;?><=]*[A-Za-ln-z]")
+_TERMINAL_QUERY_SEQUENCES = re.compile(
+    r"\x1b\[[?0-9;]*n|"  # DSR / CPR (e.g. \x1b[6n, \x1b[5n)
+    r"\x1b\[[>?0-9;]*c|"  # DA (Device Attributes e.g. \x1b[c, \x1b[>c)
+    r"\x1b\[[>?0-9;]*q|"  # XTVERSION query
+    r"\x1b\[[0-9;]*t"  # Window title/size reports
+)
+
+ansi_cursor_control = _NON_SGR_CSI_SEQUENCES
 
 # Pattern to match cursor movement to a specific column (\x1b[nG)
 ansi_cursor_move_to_column = re.compile(r"\x1b\[(\d+)?G")
@@ -35,12 +46,17 @@ def adjust_cursor_with_prompt(
     line: str, prompt: str, allow_cursor_control: bool, max_name_length: int
 ) -> str:
     """Adjust the cursor control codes to display correctly with Ananta prompt."""
+    if "\x1b" in line:
+        line = _OSC_CONTROL_SEQUENCES.sub("", line)
+    line = _ANSI_CONTROL_SEQUENCES.sub("", line)
+
     if "\x1b" not in line:
         return line.rstrip()
 
     if not allow_cursor_control:
-        line = ansi_cursor_control.sub("", line)
+        line = _NON_SGR_CSI_SEQUENCES.sub("", line)
     else:
+        line = _TERMINAL_QUERY_SEQUENCES.sub("", line)
         # Adjust \x1b[nG to account for prompt length
         prompt_offset = max_name_length + 3
 

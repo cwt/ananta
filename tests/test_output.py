@@ -95,6 +95,20 @@ def test_get_end_marker_with_color():
         # Erase codes are stripped entirely when cursor control disabled
         ("Text\x1b[1KPartial erase", "TextPartial erase"),
         ("Text\x1b[2KFull erase", "TextFull erase"),
+        # Terminal status queries removed
+        ("Line with DSR \x1b[6n", "Line with DSR "),
+        ("Line with DA \x1b[c", "Line with DA "),
+        ("Line with DA2 \x1b[>c", "Line with DA2 "),
+        # OSC commands removed
+        ("Line with OSC title \x1b]0;Evil Title\x07", "Line with OSC title "),
+        (
+            "Line with OSC clipboard \x1b]52;c;YWJj\x07",
+            "Line with OSC clipboard ",
+        ),
+        ("Line with OSC ST \x1b]0;Title\x1b\\", "Line with OSC ST "),
+        # Control characters and DCS removed
+        ("Line with DCS \x1bPevil\x1b\\", "Line with DCS "),
+        ("Line with bell \x07ring", "Line with bell ring"),
     ],
 )
 def test_adjust_cursor_no_control(line_input, expected_output_no_control):
@@ -135,6 +149,13 @@ def test_adjust_cursor_no_control(line_input, expected_output_no_control):
             "Line with cursor moved to column 1\x1b[1G",
             "Line with cursor moved to column 1\x1b[10G",
         ),
+        # Terminal queries and OSC stripped even when cursor control is allowed
+        ("Line with DSR \x1b[6n", "Line with DSR "),
+        ("Line with DA \x1b[c", "Line with DA "),
+        ("Line with DA2 \x1b[>c", "Line with DA2 "),
+        ("Line with OSC \x1b]0;Evil\x07", "Line with OSC "),
+        ("Line with DCS \x1bPevil\x1b\\", "Line with DCS "),
+        ("Line with bell \x07ring", "Line with bell ring"),
     ],
 )
 def test_adjust_cursor_with_control(line_input, expected_output_with_control):

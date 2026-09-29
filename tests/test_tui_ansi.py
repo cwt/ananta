@@ -197,6 +197,18 @@ def test_reset_code_mid_sequence_resets_state():
             [(urwid.AttrSpec("#0a141e", "default"), "truecolor")],
         ),
         (
+            "Line with OSC \x1b]0;Title\x07text",
+            [
+                (urwid.AttrSpec("default", "default"), "Line with OSC text"),
+            ],
+        ),
+        (
+            "Line with DA2 \x1b[>ctext",
+            [
+                (urwid.AttrSpec("default", "default"), "Line with DA2 text"),
+            ],
+        ),
+        (
             "Final text segment",
             [(urwid.AttrSpec("default", "default"), "Final text segment")],
         ),
