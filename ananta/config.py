@@ -304,7 +304,11 @@ def _get_hosts_from_csv(
         with open(csv_file_path, "r", encoding="utf-8") as hosts_file_obj:
             csv_reader = csv.reader(hosts_file_obj)
             for row_line, row in enumerate(csv_reader, start=1):
-                if not row or row[0].startswith("#"):
+                if (
+                    not row
+                    or not any(cell.strip() for cell in row)
+                    or row[0].strip().startswith("#")
+                ):
                     continue
 
                 # Check for minimum number of columns before unpacking

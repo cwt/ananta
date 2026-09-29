@@ -349,3 +349,24 @@ def test_get_hosts_from_csv_duplicate_names_with_existing_suffix(
     assert hosts[1][0] == "host-a-1"
     assert hosts[2][0] == "host-a-2"
     assert "Duplicate host name 'host-a' renamed to 'host-a-2'" in captured.out
+
+
+def test_get_hosts_from_csv_indented_comments_and_blank_lines(tmp_path, capsys):
+    """Test that CSV rows with leading whitespace before '#' and blank lines are ignored."""
+    csv_file = tmp_path / "hosts.csv"
+    csv_file.write_text(
+        "   # Indented comment line\n"
+        "\n"
+        "   \n"
+        "host-1,10.0.0.1,22,user1\n"
+        "\t# Tab-indented comment\n"
+        "host-2,10.0.0.2,22,user2\n"
+    )
+    hosts, _ = _get_hosts_from_csv(str(csv_file), None)
+    captured = capsys.readouterr()
+
+    assert len(hosts) == 2
+    assert hosts[0][0] == "host-1"
+    assert hosts[1][0] == "host-2"
+    assert "incomplete" not in captured.out
+    assert "empty required fields" not in captured.out
