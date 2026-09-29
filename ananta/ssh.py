@@ -9,7 +9,7 @@ from ananta.host_keys import (
     _host_entry_name,
     make_client_factory,
 )
-from ananta.output import get_end_marker
+from ananta.output import calculate_remote_width, get_end_marker
 
 from . import LINES, UNSPECIFIED_KEY_PATH
 
@@ -287,7 +287,7 @@ async def execute(
     connection setup is skipped entirely.
     """
     # Clamp to a sane minimum for narrow terminals or very long host names.
-    remote_width = max(local_display_width - max_name_length - 3, 10)
+    remote_width = calculate_remote_width(local_display_width, max_name_length)
 
     try:
         if conn is None:

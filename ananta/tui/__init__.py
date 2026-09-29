@@ -14,7 +14,7 @@ import urwid
 
 from ..config import get_hosts
 from ..host_keys import HostKeyChangedError, HostKeyPolicy
-from ..output import _make_color_cycle
+from ..output import _make_color_cycle, calculate_remote_width
 from ..ssh import (
     _close_ssh_connection,
     establish_ssh_connection,
@@ -611,8 +611,8 @@ class AnantaUrwidTUI:
         cols = 80
         if self.loop and self.loop.screen:
             cols = self.loop.screen.get_cols_rows()[0]
-        remote_width = (
-            max(cols - self.max_name_length - 3, 10) - 1
+        remote_width = calculate_remote_width(
+            cols, self.max_name_length, extra_margin=1
         )  # Decrease 1 column for the scrollbar.
 
         output_queue: asyncio.Queue[str | None] = asyncio.Queue()

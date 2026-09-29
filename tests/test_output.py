@@ -7,11 +7,13 @@ from ananta.output import (
     CYAN,
     GREEN,
     MAGENTA,
+    MIN_REMOTE_WIDTH,
     RED,
     RESET,  # Import colors
     YELLOW,
     _get_host_color,  # noqa -- import for potential direct testing if needed
     adjust_cursor_with_prompt,
+    calculate_remote_width,
     get_end_marker,
     get_prompt,
     print_output,
@@ -224,3 +226,14 @@ async def test_print_output_interleaved(capsys):
         mock_print.assert_called_once_with(f"{expected_prompt}line1{RESET}")
         # Verify lock was used for each line
         lock.__aenter__.assert_called()
+
+
+def test_calculate_remote_width():
+    """Test remote width calculation with padding and minimum clamp."""
+    # Standard terminal width 80, host name length 6: 80 - (6 + 3) = 71
+    assert calculate_remote_width(80, 6) == 71
+    # With extra margin 1: 80 - (6 + 3) - 1 = 70
+    assert calculate_remote_width(80, 6, extra_margin=1) == 70
+    # Clamped to MIN_REMOTE_WIDTH (10) when terminal is very narrow
+    assert calculate_remote_width(15, 10) == MIN_REMOTE_WIDTH
+    assert calculate_remote_width(5, 10) == MIN_REMOTE_WIDTH

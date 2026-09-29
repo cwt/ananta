@@ -17,7 +17,7 @@ import asyncssh
 from . import __version__
 from .config import get_hosts
 from .host_keys import HostKeyPolicy, MismatchRecord, _host_entry_name
-from .output import print_output  # Used by non-TUI mode
+from .output import calculate_remote_width, print_output  # Used by non-TUI mode
 from .ssh import (  # Used by non-TUI mode
     _close_ssh_connection,
     establish_ssh_connection,
@@ -239,7 +239,9 @@ async def main(  # This is the non-TUI main function
             # Abort before a single command runs; exit code 3 marks a
             # security abort so scripts can distinguish it. Every host —
             # connected or not — gets its queue drained with an abort line.
-            remote_width = max(local_display_width - max_name_length - 3, 10)
+            remote_width = calculate_remote_width(
+                local_display_width, max_name_length
+            )
             for conn in connections.values():
                 await _close_ssh_connection(conn)
             for host_name, output_queue in output_queues.items():
@@ -253,7 +255,7 @@ async def main(  # This is the non-TUI main function
             await printing_task_group
             sys.exit(3)
 
-    remote_width = max(local_display_width - max_name_length - 3, 10)
+    remote_width = calculate_remote_width(local_display_width, max_name_length)
 
     # Finalize any hosts that could not be connected.
     for host_details in hosts_to_execute:
