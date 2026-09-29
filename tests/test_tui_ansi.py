@@ -243,7 +243,7 @@ def test_ansi_state_persistence_across_lines():
     from ananta.tui.ansi import _AnsiState, ansi_to_urwid_markup
 
     state = _AnsiState()
-    markup1, state = ansi_to_urwid_markup("\x1b[31mred\x1b[0m", state)
+    _markup1, state = ansi_to_urwid_markup("\x1b[31mred\x1b[0m", state)
     markup2, state = ansi_to_urwid_markup(" continues", state)
 
     # Second line should inherit default state (since SGR 0 was emitted)
@@ -253,7 +253,7 @@ def test_ansi_state_persistence_across_lines():
 
     # Test without explicit reset - color should persist
     state = _AnsiState()
-    markup1, state = ansi_to_urwid_markup("\x1b[31mred", state)
+    _markup1, state = ansi_to_urwid_markup("\x1b[31mred", state)
     markup2, state = ansi_to_urwid_markup(" more red", state)
 
     assert len(markup2) == 1

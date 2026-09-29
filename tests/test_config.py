@@ -498,7 +498,7 @@ host-no-user,10.0.0.4,22,   ,#,web
 """
     p = tmp_path / "hosts.csv"
     p.write_text(csv_content, encoding="utf-8")
-    hosts, max_len = get_hosts(str(p), None)
+    hosts, _ = get_hosts(str(p), None)
     assert len(hosts) == 1
     assert hosts[0][0] == "valid-host"
     captured = capsys.readouterr()

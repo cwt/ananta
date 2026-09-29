@@ -228,8 +228,6 @@ async def test_run_command_interleaved_output_and_empty_lines(mock_tui):
     async def capture_queue(conn, cmd, width, queue, color):
         nonlocal captured_queue
         captured_queue = queue
-        # Return an empty coroutine so the mock doesn't block
-        return
 
     with patch(
         "ananta.tui.stream_command_output", side_effect=capture_queue

@@ -342,7 +342,7 @@ def test_run_cli_tui_light_option(mock_parse_args, mock_main_func):
 
     # Verify the TUI was initialized with light_theme=True
     mock_tui_class.assert_called_once()
-    args, kwargs = mock_tui_class.call_args
+    _, kwargs = mock_tui_class.call_args
     assert kwargs.get("light_theme") == True
 
 

@@ -320,7 +320,7 @@ async def test_main_override_confirmed_replaces_and_continues(
     monkeypatch, tmp_path
 ):
     """Typing CONFIRM re-trusts the key, reconnects, and runs everywhere."""
-    policy, m = await _make_verified_session(
+    _, m = await _make_verified_session(
         monkeypatch, tmp_path, mismatch_host="192.0.2.9"
     )
     await m["run_main"](override=True, confirm_answer="CONFIRM")
