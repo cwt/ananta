@@ -204,7 +204,12 @@ def _get_hosts_from_toml(
                     "'username' or 'username' is not a string. Skipping!"
                 )
                 continue
-            key_path = str(host_config.get("key_path", default_key_path))
+            raw_key_path = host_config.get("key_path", default_key_path)
+            key_path = (
+                str(raw_key_path).strip()
+                if raw_key_path
+                else UNSPECIFIED_KEY_PATH
+            )
             try:
                 timeout = _validate_timeout(
                     float(host_config.get("timeout", default_timeout))
@@ -313,7 +318,11 @@ def _get_hosts_from_csv(
                     continue
                 try:
                     ssh_port = _validate_port(int(str_port))
-                    key_path = row[4] if len(row) > 4 else ""
+                    key_path = (
+                        row[4].strip()
+                        if len(row) > 4 and row[4].strip()
+                        else UNSPECIFIED_KEY_PATH
+                    )
                     tags_in_csv_str = row[5] if len(row) > 5 else ""
                 except ValueError as error:
                     if "Port" in str(error):

@@ -540,3 +540,19 @@ tags = ["db"]
 
     hosts_default, _ = get_hosts(str(p_toml), "common")
     assert len(hosts_default) == 2
+
+
+def test_get_hosts_csv_unspecified_key_path(tmp_path):
+    """Test that CSV rows with omitted or empty key path default to '#'."""
+    csv_content = """
+host1,10.0.0.1,22,user1
+host2,10.0.0.2,22,user2,   ,web
+host3,10.0.0.3,22,user3,
+"""
+    p = tmp_path / "hosts.csv"
+    p.write_text(csv_content, encoding="utf-8")
+    hosts, _ = get_hosts(str(p), None)
+    assert len(hosts) == 3
+    assert hosts[0][4] == "#"
+    assert hosts[1][4] == "#"
+    assert hosts[2][4] == "#"

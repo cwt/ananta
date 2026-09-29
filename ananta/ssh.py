@@ -100,10 +100,10 @@ def get_ssh_keys(key_path: str | None, default_key: str | None) -> list[str]:
     """Determine SSH keys to use based on provided inputs."""
     # If key path is specified in the hosts file
     if key_path and key_path != UNSPECIFIED_KEY_PATH:
-        return [key_path]
+        return [os.path.expanduser(key_path)]
     # If key path is # (not specified) and default key is specified via -K
     if default_key:
-        return [default_key]
+        return [os.path.expanduser(default_key)]
     # If key path is # (not specified) and default key is also not specified via -K
     common_ssh_dir = os.path.expanduser(os.path.join("~", ".ssh"))
     common_keys = [

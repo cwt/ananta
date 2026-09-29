@@ -6,12 +6,18 @@ import pytest
 from ananta.ssh import get_ssh_keys
 
 
+def fake_expanduser(path: str) -> str:
+    sep = os.path.sep
+    if path.startswith("~" + sep) or path == "~":
+        return path.replace("~", f"{sep}fake{sep}home", 1)
+    if path.startswith("~/"):
+        return path.replace("~/", f"{sep}fake{sep}home{sep}", 1)
+    return path
+
+
 # Use patch to mock os.path.exists and os.path.expanduser
 @patch("ananta.ssh.os.path.exists")
-@patch(
-    "ananta.ssh.os.path.expanduser",
-    return_value="/fake/home/.ssh".replace("/", os.path.sep),
-)
+@patch("ananta.ssh.os.path.expanduser", side_effect=fake_expanduser)
 def test_get_ssh_keys(mock_expanduser, mock_exists):
     """Tests the logic for selecting SSH keys."""
 
@@ -23,6 +29,10 @@ def test_get_ssh_keys(mock_expanduser, mock_exists):
         "/another/key".replace("/", os.path.sep),
         "/default/key".replace("/", os.path.sep),
     ) == ["/another/key".replace("/", os.path.sep)]
+    # Tilde expansion for specific key path
+    assert get_ssh_keys("~/specific_key".replace("/", os.path.sep), None) == [
+        os.path.join("/fake/home".replace("/", os.path.sep), "specific_key")
+    ]
     # Ensure os.path.exists was not called in these cases
     assert not mock_exists.called
 
@@ -33,6 +43,10 @@ def test_get_ssh_keys(mock_expanduser, mock_exists):
     assert get_ssh_keys(
         "#", "/path/to/default_key".replace("/", os.path.sep)
     ) == ["/path/to/default_key".replace("/", os.path.sep)]
+    # Tilde expansion for default key
+    assert get_ssh_keys("#", "~/default_key".replace("/", os.path.sep)) == [
+        os.path.join("/fake/home".replace("/", os.path.sep), "default_key")
+    ]
     assert not mock_exists.called
 
     mock_exists.reset_mock()
@@ -49,8 +63,9 @@ def test_get_ssh_keys(mock_expanduser, mock_exists):
     expected_keys_ed25519 = [
         os.path.join("/fake/home/.ssh".replace("/", os.path.sep), "id_ed25519")
     ]
+    mock_expanduser.reset_mock()
     assert get_ssh_keys("#", None) == expected_keys_ed25519
-    # Check that expanduser was called once and exists was called for id_ed25519
+    # Check that expanduser was called for ~/.ssh and exists was called for id_ed25519
     mock_expanduser.assert_called_once_with("~/.ssh".replace("/", os.path.sep))
     mock_exists.assert_any_call(
         "/fake/home/.ssh/id_ed25519".replace("/", os.path.sep)
@@ -82,7 +97,10 @@ def test_get_ssh_keys(mock_expanduser, mock_exists):
     mock_expanduser.reset_mock()
 
     # Mock os.path.exists to simulate finding no common keys
-    mock_exists.side_effect = lambda path: False
+    def exists_none(path):
+        return False
+
+    mock_exists.side_effect = exists_none
     with pytest.raises(ConnectionError, match="No SSH keys found"):
         get_ssh_keys("#", None)
     mock_expanduser.assert_called_once_with("~/.ssh".replace("/", os.path.sep))
