@@ -111,6 +111,10 @@ def test_get_end_marker_with_color():
         # Control characters and DCS removed
         ("Line with DCS \x1bPevil\x1b\\", "Line with DCS "),
         ("Line with bell \x07ring", "Line with bell ring"),
+        # Carriage return takes last non-empty segment when control disabled
+        ("Step 1\rStep 2\rStep 3", "Step 3"),
+        ("Step 1\r", "Step 1"),
+        ("\r", ""),
     ],
 )
 def test_adjust_cursor_no_control(line_input, expected_output_no_control):
@@ -158,6 +162,10 @@ def test_adjust_cursor_no_control(line_input, expected_output_no_control):
         ("Line with OSC \x1b]0;Evil\x07", "Line with OSC "),
         ("Line with DCS \x1bPevil\x1b\\", "Line with DCS "),
         ("Line with bell \x07ring", "Line with bell ring"),
+        # Carriage return re-anchors to prompt when control allowed
+        ("Step 1\rStep 2", "Step 1\r[prompt] Step 2"),
+        ("Step 1\r", "Step 1"),
+        ("\r", ""),
     ],
 )
 def test_adjust_cursor_with_control(line_input, expected_output_with_control):

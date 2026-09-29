@@ -66,30 +66,43 @@ def adjust_cursor_with_prompt(
         line = _OSC_CONTROL_SEQUENCES.sub("", line)
     line = _ANSI_CONTROL_SEQUENCES.sub("", line)
 
+    if not allow_cursor_control:
+        if "\r" in line:
+            parts = line.split("\r")
+            for part in reversed(parts):
+                if part:
+                    line = part
+                    break
+            else:
+                line = ""
+        if "\x1b" in line:
+            line = _NON_SGR_CSI_SEQUENCES.sub("", line)
+        return line.rstrip()
+
+    if "\r" in line:
+        line = line.rstrip("\r").replace("\r", f"\r{prompt}")
+
     if "\x1b" not in line:
         return line.rstrip()
 
-    if not allow_cursor_control:
-        line = _NON_SGR_CSI_SEQUENCES.sub("", line)
-    else:
-        line = _TERMINAL_QUERY_SEQUENCES.sub("", line)
-        # Adjust \x1b[nG to account for prompt length
-        prompt_offset = max_name_length + PROMPT_EXTRA_WIDTH
+    line = _TERMINAL_QUERY_SEQUENCES.sub("", line)
+    # Adjust \x1b[nG to account for prompt length
+    prompt_offset = max_name_length + PROMPT_EXTRA_WIDTH
 
-        def adjust_cursor_movement(match: re.Match) -> str:
-            n = int(match.group(1)) if match.group(1) else 1
-            n += prompt_offset
-            return f"\x1b[{n}G"
+    def adjust_cursor_movement(match: re.Match) -> str:
+        n = int(match.group(1)) if match.group(1) else 1
+        n += prompt_offset
+        return f"\x1b[{n}G"
 
-        line = ansi_cursor_move_to_column.sub(adjust_cursor_movement, line)
+    line = ansi_cursor_move_to_column.sub(adjust_cursor_movement, line)
 
-        # If erase to the beginning of line, jump to col 0, add prompt, then return
-        if "\x1b[1K" in line:
-            line = line.replace("\x1b[1K", f"\x1b[1K\x1b[s\x1b[G{prompt}\x1b[u")
+    # If erase to the beginning of line, jump to col 0, add prompt, then return
+    if "\x1b[1K" in line:
+        line = line.replace("\x1b[1K", f"\x1b[1K\x1b[s\x1b[G{prompt}\x1b[u")
 
-        # If erase the whole line, jump to col 0, add prompt, then return
-        if "\x1b[2K" in line:
-            line = line.replace("\x1b[2K", f"\x1b[2K\x1b[s\x1b[G{prompt}\x1b[u")
+    # If erase the whole line, jump to col 0, add prompt, then return
+    if "\x1b[2K" in line:
+        line = line.replace("\x1b[2K", f"\x1b[2K\x1b[s\x1b[G{prompt}\x1b[u")
 
     return line.rstrip()
 
