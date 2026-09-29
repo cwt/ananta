@@ -122,15 +122,22 @@ class HostKeyPolicy:
         blob = self._entries.get(entry)
         if blob is not None:
             return blob
-        # Port-22 entries are stored bare; also try the explicit form.
-        if entry.startswith("["):
-            bare = entry[1 : entry.index("]:")]
-            blob = self._entries.get(bare)
+        # Port-22 entries can be stored bare ("host") or explicitly ("[host]:22").
+        if entry.endswith("]:22"):
+            bare = entry[1:-4]
+            blob = self._entries.get(bare) or self._entries.get(f"[{bare}]")
+            if blob is not None:
+                return blob
+        elif not entry.startswith("["):
+            explicit_22 = f"[{entry}]:22"
+            blob = self._entries.get(explicit_22)
             if blob is not None:
                 return blob
         for idx, names in enumerate(self._line_index):
             for name in names:
-                if name.startswith("|1|") and _hashed_match(name, hostname):
+                if name.startswith("|1|") and (
+                    _hashed_match(name, entry) or _hashed_match(name, hostname)
+                ):
                     return self._entries.get(names[0]) or self._file_blob(idx)
         return None
 

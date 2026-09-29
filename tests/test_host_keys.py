@@ -103,6 +103,46 @@ class TestValidateKey:
             is False
         )
 
+    async def test_different_port_does_not_match_port_22_key(
+        self, known_hosts_file, key_b
+    ):
+        policy = HostKeyPolicy(known_hosts_path=known_hosts_file)
+        # web-01 on port 22 has key_a recorded.
+        # Connecting to web-01 on port 2222 with key_b should be TOFU, not mismatch.
+        assert policy.validate_key("[web-01]:2222", "web-01", key_b) is True
+        assert not policy.mismatches
+        assert policy.added_keys[0][0] == "[web-01]:2222"
+
+    async def test_explicit_port_22_matches_bare_entry(self, tmp_path, key_a):
+        kh = tmp_path / "known_hosts"
+        blob = _openssh_blob(key_a).split(maxsplit=1)[1]
+        kh.write_text(f"[my-host]:22 ssh-ed25519 {blob}\n", encoding="utf-8")
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        # Connecting to my-host on bare port 22 should match [my-host]:22
+        assert policy.validate_key("my-host", "my-host", key_a) is True
+        assert not policy.mismatches
+
+    async def test_bare_entry_matches_explicit_port_22(self, tmp_path, key_a):
+        kh = tmp_path / "known_hosts"
+        blob = _openssh_blob(key_a).split(maxsplit=1)[1]
+        kh.write_text(f"my-bare-host ssh-ed25519 {blob}\n", encoding="utf-8")
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        # Connecting with explicit port 22 should match bare entry
+        assert (
+            policy.validate_key("[my-bare-host]:22", "my-bare-host", key_a)
+            is True
+        )
+        assert not policy.mismatches
+
+    async def test_bracketed_ipv6_does_not_crash(self, tmp_path, key_a):
+        kh = tmp_path / "known_hosts"
+        blob = _openssh_blob(key_a).split(maxsplit=1)[1]
+        kh.write_text(f"[2001:db8::1] ssh-ed25519 {blob}\n", encoding="utf-8")
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        assert (
+            policy.validate_key("[2001:db8::1]", "2001:db8::1", key_a) is True
+        )
+
 
 class TestOverrides:
     async def test_apply_overrides_replaces_entry(
