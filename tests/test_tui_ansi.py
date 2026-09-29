@@ -209,6 +209,14 @@ def test_reset_code_mid_sequence_resets_state():
             ],
         ),
         (
+            "\x1b[38;5;999minvalid 256 color\x1b[0m",
+            [(urwid.AttrSpec("default", "default"), "invalid 256 color")],
+        ),
+        (
+            "\x1b[38;2;999;0;0minvalid truecolor\x1b[0m",
+            [(urwid.AttrSpec("default", "default"), "invalid truecolor")],
+        ),
+        (
             "Final text segment",
             [(urwid.AttrSpec("default", "default"), "Final text segment")],
         ),
@@ -269,3 +277,12 @@ def test_attr_spec_cache_key_stable_across_style_insertion_order():
     state_two.styles.add("bold")
 
     assert state_one.get_attr_spec() is state_two.get_attr_spec()
+
+
+def test_build_attr_spec_invalid_spec_falls_back():
+    """Test that invalid color strings fall back to default AttrSpec without crashing."""
+    from ananta.tui.ansi import _build_attr_spec
+
+    spec = _build_attr_spec("invalid_color_xyz", "invalid_bg_xyz", ())
+    assert spec.foreground == "default"
+    assert spec.background == "default"

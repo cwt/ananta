@@ -53,7 +53,10 @@ def _build_attr_spec(
 
     final_bg_spec = current_bg_color
 
-    return urwid.AttrSpec(final_fg_spec, final_bg_spec)
+    try:
+        return urwid.AttrSpec(final_fg_spec, final_bg_spec)
+    except Exception:
+        return urwid.AttrSpec(_DEFAULT_FG_COLOR, _DEFAULT_BG_COLOR)
 
 
 @dataclass
@@ -142,24 +145,28 @@ def _handle_extended_color(
         if idx < len(params):
             color_id = params[idx]
             try:
-                int(color_id)
-                color_val = f"h{color_id}"
-                if is_fg:
-                    state.fg = color_val
-                else:
-                    state.bg = color_val
+                n = int(color_id)
+                if 0 <= n <= 255:
+                    color_val = f"h{n}"
+                    if is_fg:
+                        state.fg = color_val
+                    else:
+                        state.bg = color_val
             except ValueError:
                 pass
             idx += 1
     elif color_mode == "2":
         if idx + 2 < len(params):
             try:
-                r, g, b = params[idx : idx + 3]
-                color_val = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
-                if is_fg:
-                    state.fg = color_val
-                else:
-                    state.bg = color_val
+                r = int(params[idx])
+                g = int(params[idx + 1])
+                b = int(params[idx + 2])
+                if 0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255:
+                    color_val = f"#{r:02x}{g:02x}{b:02x}"
+                    if is_fg:
+                        state.fg = color_val
+                    else:
+                        state.bg = color_val
             except ValueError:
                 pass
             idx += 3
