@@ -19,7 +19,6 @@ import tempfile
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
 
 import asyncssh
 
@@ -78,12 +77,12 @@ class HostKeyPolicy:
         # Maps entry name -> OpenSSH-format public key blob.
         self._entries: dict[str, str] = {}
         # Original file lines kept so overrides can rewrite surgically.
-        self._file_lines: List[str] = []
-        self._line_index: List[List[str]] = []  # names covered by each line
+        self._file_lines: list[str] = []
+        self._line_index: list[list[str]] = []  # names covered by each line
 
         self._lock = threading.Lock()
-        self._added: List[Tuple[str, str]] = []  # (entry, fingerprint)
-        self._mismatches: List[MismatchRecord] = []
+        self._added: list[tuple[str, str]] = []  # (entry, fingerprint)
+        self._mismatches: list[MismatchRecord] = []
         self._overridden: set[str] = set()
 
         self._load_known_hosts()
@@ -101,13 +100,17 @@ class HostKeyPolicy:
         for raw in raw_lines:
             stripped = raw.strip()
             if not stripped or stripped.startswith("#"):
+                self._file_lines.append(raw)
+                self._line_index.append([])
                 continue
             fields = stripped.split()
             if len(fields) < 3 or fields[0].startswith(_MARKERS):
+                self._file_lines.append(raw)
+                self._line_index.append([])
                 continue
             names = fields[0].split(",")
             blob = f"{fields[1]} {fields[2]}"
-            self._file_lines.append(stripped)
+            self._file_lines.append(raw)
             self._line_index.append(names)
             for name in names:
                 self._entries.setdefault(name, blob)
@@ -185,12 +188,12 @@ class HostKeyPolicy:
     # --- override ----------------------------------------------------------
 
     @property
-    def mismatches(self) -> List[MismatchRecord]:
+    def mismatches(self) -> list[MismatchRecord]:
         """Live view of detected mismatches (append via validate_key only)."""
         return self._mismatches
 
     @property
-    def added_keys(self) -> List[Tuple[str, str]]:
+    def added_keys(self) -> list[tuple[str, str]]:
         """Live view of keys trusted on first use this session."""
         return self._added
 
@@ -205,8 +208,8 @@ class HostKeyPolicy:
             self._mismatches.clear()
 
     def _remove_entries_from_file(self, entry: str) -> None:
-        kept_lines: List[str] = []
-        kept_index: List[List[str]] = []
+        kept_lines: list[str] = []
+        kept_index: list[list[str]] = []
         for line, names in zip(self._file_lines, self._line_index):
             if entry in names:
                 remaining = [n for n in names if n != entry]

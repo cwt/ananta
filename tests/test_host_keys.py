@@ -147,6 +147,30 @@ class TestOverrides:
         ]
         assert len(new_line) == 1
 
+    async def test_override_preserves_comments_and_markers(
+        self, tmp_path, key_a, key_b
+    ):
+        blob_a = _openssh_blob(key_a).split(maxsplit=1)[1]
+        blob_b = _openssh_blob(key_b).split(maxsplit=1)[1]
+        kh = tmp_path / "known_hosts"
+        kh.write_text(
+            "# User comment\n"
+            "\n"
+            "@cert-authority *.example.com ssh-rsa AAAA...\n"
+            "@revoked *.revoked.com ssh-rsa BBBB...\n"
+            f"target-host ssh-ed25519 {blob_a}\n",
+            encoding="utf-8",
+        )
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        assert policy.validate_key("target-host", "target-host", key_b) is False
+        policy.apply_overrides()
+
+        content = kh.read_text(encoding="utf-8")
+        assert "# User comment" in content
+        assert "@cert-authority *.example.com ssh-rsa AAAA..." in content
+        assert "@revoked *.revoked.com ssh-rsa BBBB..." in content
+        assert f"target-host ssh-ed25519 {blob_b}" in content
+
 
 class TestClientFactory:
     async def test_factory_wires_validation_hook(self, tmp_path, key_a, key_b):
