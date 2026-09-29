@@ -244,10 +244,6 @@ class HostKeyPolicy:
             self._mismatches.clear()
             self._rewrite_file()
 
-    def _remove_entries_from_file(self, entry: str) -> None:
-        self._remove_entry_from_lines(entry)
-        self._rewrite_file()
-
     def _remove_entry_from_lines(self, entry: str) -> None:
         aliases = _equivalent_entry_names(entry)
         kept_lines: list[str] = []
