@@ -250,9 +250,6 @@ class AnantaUrwidTUI:
         }
         # Mandatory host-key verification shared across all connections.
         self.host_key_policy = HostKeyPolicy()
-        self.output_queues: dict[str, asyncio.Queue[str | None]] = {
-            host[0]: asyncio.Queue() for host in self.hosts
-        }
         self._ansi_states: dict[str, _AnsiState] = {}
         self._host_attr_names: dict[str, str] = {}
         self._host_prompts: dict[str, list[tuple[str, str]]] = {}
