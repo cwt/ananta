@@ -7,6 +7,7 @@ Manages asynchronous SSH connections and command execution on multiple remote ho
 from __future__ import annotations
 
 import asyncio
+import tempfile
 from typing import Any
 
 import asyncssh
@@ -619,15 +620,25 @@ class AnantaUrwidTUI:
 
         try:
             if self.separate_output:
-                # Buffer every line first, then render as one block per host.
-                buffered_lines: list[str] = []
-                while not self.is_exiting:
-                    line_data = await output_queue.get()
-                    if line_data is None:
-                        break
-                    buffered_lines.append(line_data)
-                for line_data in buffered_lines:
-                    self._display_stream_line(host_name, prompt, line_data)
+                # Buffer lines first with temporary spillover to avoid unbounded RAM usage,
+                # then render as one block per host.
+                with tempfile.SpooledTemporaryFile(
+                    max_size=10 * 1024 * 1024, mode="w+", encoding="utf-8"
+                ) as buf:
+                    while not self.is_exiting:
+                        line_data = await output_queue.get()
+                        if line_data is None:
+                            break
+                        buf.write(
+                            line_data
+                            if line_data.endswith("\n")
+                            else f"{line_data}\n"
+                        )
+                    buf.seek(0)
+                    for raw_line in buf:
+                        self._display_stream_line(
+                            host_name, prompt, raw_line.rstrip("\r\n")
+                        )
             else:
                 while not self.is_exiting:
                     line_data = await output_queue.get()

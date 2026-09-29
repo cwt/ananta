@@ -1,5 +1,6 @@
 import asyncio
 import re
+import tempfile
 from itertools import cycle
 from random import shuffle
 
@@ -130,16 +131,19 @@ async def print_output(
     prompt = get_prompt(host_name, max_name_length, color)
 
     if separate_output:
-        chunks = []
-        while True:
-            output = await output_queue.get()
-            if output is None:
-                break
-            chunks.append(output)
+        with tempfile.SpooledTemporaryFile(
+            max_size=10 * 1024 * 1024, mode="w+", encoding="utf-8"
+        ) as buf:
+            while True:
+                output = await output_queue.get()
+                if output is None:
+                    break
+                buf.write(output)
 
-        async with print_lock:
-            for chunk in chunks:
-                for line in chunk.splitlines():
+            buf.seek(0)
+            async with print_lock:
+                for raw_line in buf:
+                    line = raw_line.rstrip("\r\n")
                     adjusted_line = adjust_cursor_with_prompt(
                         line, prompt, allow_cursor_control, max_name_length
                     )
