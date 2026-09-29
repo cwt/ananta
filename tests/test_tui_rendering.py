@@ -42,7 +42,11 @@ class TestListBoxWithScrollBar:
         # Check that the focus changes on 'down' keypress
         initial_focus = walker.focus
         listbox.keypress((80, 5), "down")
-        assert walker.focus > initial_focus
+        assert (
+            walker.focus is not None
+            and initial_focus is not None
+            and walker.focus > initial_focus
+        )
 
     def test_mouse_event_scrolling(self):
         """Test that mouse scroll events are handled."""
@@ -53,9 +57,32 @@ class TestListBoxWithScrollBar:
 
         # Scroll up
         listbox.mouse_event((80, 10), "mouse press", 4, 0, 0, True)
-        assert walker.focus < 10
+        assert walker.focus is not None and walker.focus < 10
 
         # Scroll down
         walker.set_focus(10)
         listbox.mouse_event((80, 10), "mouse press", 5, 0, 0, True)
-        assert walker.focus > 10
+        assert walker.focus is not None and walker.focus > 10
+
+    def test_mouse_event_scrolling_triggers_redraw(self):
+        """Test that mouse scroll events trigger _schedule_draw when tui is provided."""
+        from unittest.mock import Mock
+
+        mock_tui = Mock()
+        widgets = [urwid.Text(f"Line {i}") for i in range(20)]
+        walker = urwid.SimpleFocusListWalker(widgets)
+        listbox = ListBoxWithScrollBar(walker, tui=mock_tui)
+        walker.set_focus(10)
+
+        # Scroll up triggers redraw
+        listbox.mouse_event((80, 10), "mouse press", 4, 0, 0, True)
+        assert mock_tui._schedule_draw.call_count == 1
+
+        # Scroll down triggers redraw
+        listbox.mouse_event((80, 10), "mouse press", 5, 0, 0, True)
+        assert mock_tui._schedule_draw.call_count == 2
+
+        # Non-scroll button does not trigger redraw
+        mock_tui.reset_mock()
+        listbox.mouse_event((80, 10), "mouse press", 1, 0, 0, True)
+        mock_tui._schedule_draw.assert_not_called()

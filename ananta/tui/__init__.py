@@ -26,8 +26,13 @@ from .ansi import _AnsiState, ansi_to_urwid_markup
 class ListBoxWithScrollBar(urwid.WidgetWrap):
     """A ListBox with a visual scrollbar."""
 
-    def __init__(self, walker: urwid.SimpleFocusListWalker):
+    def __init__(
+        self,
+        walker: urwid.SimpleFocusListWalker,
+        tui: "AnantaUrwidTUI | None" = None,
+    ):
         self._walker = walker
+        self._tui = tui
         self._list_box = urwid.ListBox(self._walker)
         self._scrollbar = urwid.Text("", align="left")
         self._last_scrollbar_state: tuple[int, int, int] | None = None
@@ -111,9 +116,13 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
         if event == "mouse press":
             if button == 4:  # Scroll up
                 self._list_box.keypress(size, "page up")
+                if self._tui:
+                    self._tui._schedule_draw()
                 return True
             if button == 5:  # Scroll down
                 self._list_box.keypress(size, "page down")
+                if self._tui:
+                    self._tui._schedule_draw()
                 return True
         return self._list_box.mouse_event(size, event, button, col, row, focus)
 
@@ -153,14 +162,7 @@ class RefreshingPile(urwid.Pile):
         self._tui.update_prompt_attribute()
         # After any keypress, handled or not by a child, request a redraw.
         # This is necessary because the main loop's idle handler is disabled.
-        if (
-            self._tui.loop
-            and self._tui.loop.event_loop
-            and not self._tui.draw_screen_handle
-        ):
-            self._tui.draw_screen_handle = self._tui.loop.event_loop.alarm(
-                0, self._tui._request_draw
-            )
+        self._tui._schedule_draw()
         return result
 
 
@@ -262,7 +264,7 @@ class AnantaUrwidTUI:
         self.output_walker: urwid.SimpleFocusListWalker = (
             urwid.SimpleFocusListWalker([])
         )
-        self.output_box = ListBoxWithScrollBar(self.output_walker)
+        self.output_box = ListBoxWithScrollBar(self.output_walker, tui=self)
         self.input_field = urwid.Edit(edit_text="")
         self.prompt_widget = urwid.Text(">>> ")
         self.prompt_attr_map = urwid.AttrMap(self.prompt_widget, "input_prompt")
@@ -446,6 +448,10 @@ class AnantaUrwidTUI:
         if scroll:
             self.output_walker.set_focus(len(self.output_walker) - 1)
 
+        self._schedule_draw()
+
+    def _schedule_draw(self) -> None:
+        """Schedule a redraw of the screen on the event loop."""
         if self.loop and self.loop.event_loop and not self.draw_screen_handle:
             self.draw_screen_handle = self.loop.event_loop.alarm(
                 0, self._request_draw
@@ -688,10 +694,7 @@ class AnantaUrwidTUI:
             self.prompt_attr_map.set_attr_map({None: "input_prompt"})
         else:
             self.prompt_attr_map.set_attr_map({None: "input_prompt_inactive"})
-        if self.loop and self.loop.event_loop and not self.draw_screen_handle:
-            self.draw_screen_handle = self.loop.event_loop.alarm(
-                0, self._request_draw
-            )
+        self._schedule_draw()
 
     def handle_input(self, key: str | tuple[str, int, int, int]) -> bool | None:
         """Handle user input from the keyboard."""
