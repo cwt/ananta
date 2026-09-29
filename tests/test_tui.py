@@ -360,6 +360,7 @@ def test_host_attr_names_unique_across_sanitized_collisions(mock_tui):
     assert name_c not in (name_a, name_b)
     # Stable across repeated lookups.
     assert tui._get_host_attr_name("web-1") == name_a
+    assert {name_a, name_b, name_c}.issubset(tui._taken_attr_names)
 
 
 class TestRequestDrawErrorHandling:

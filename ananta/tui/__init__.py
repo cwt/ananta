@@ -220,6 +220,7 @@ class AnantaUrwidTUI:
         self.host_key_policy = HostKeyPolicy()
         self._ansi_states: dict[str, _AnsiState] = {}
         self._host_attr_names: dict[str, str] = {}
+        self._taken_attr_names: set[str] = set()
         self._host_prompts: dict[str, list[tuple[str, str]]] = {}
         # --- Urwid setup ---
         # Maps host attr names to their foreground color for the palette.
@@ -290,6 +291,8 @@ class AnantaUrwidTUI:
     def _get_host_attr_name(self, host_name: str) -> str:
         """Return a unique palette attribute name for a host."""
         if host_name not in self._host_attr_names:
+            if len(self._host_attr_names) < len(self._taken_attr_names):
+                self._taken_attr_names = set(self._host_attr_names.values())
             sanitized = (
                 host_name.lower()
                 .replace("-", "_")
@@ -299,11 +302,11 @@ class AnantaUrwidTUI:
             attr_name = f"host_{sanitized}"
             # Distinct hosts can sanitize to the same name (e.g. "web-1"
             # and "web_1"); suffix until unique so colors never merge.
-            taken = set(self._host_attr_names.values())
             suffix = 1
-            while attr_name in taken:
+            while attr_name in self._taken_attr_names:
                 attr_name = f"host_{sanitized}_{suffix}"
                 suffix += 1
+            self._taken_attr_names.add(attr_name)
             self._host_attr_names[host_name] = attr_name
         return self._host_attr_names[host_name]
 
