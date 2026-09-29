@@ -133,17 +133,13 @@ class HostKeyPolicy:
             blob = self._entries.get(explicit_22)
             if blob is not None:
                 return blob
-        for idx, names in enumerate(self._line_index):
+        for names in self._line_index:
             for name in names:
                 if name.startswith("|1|") and (
                     _hashed_match(name, entry) or _hashed_match(name, hostname)
                 ):
-                    return self._entries.get(names[0]) or self._file_blob(idx)
+                    return self._entries.get(names[0])
         return None
-
-    def _file_blob(self, index: int) -> str | None:
-        fields = self._file_lines[index].split()
-        return f"{fields[1]} {fields[2]}" if len(fields) >= 3 else None
 
     @staticmethod
     def _blob(key: asyncssh.SSHKey) -> str:
