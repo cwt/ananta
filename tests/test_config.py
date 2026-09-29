@@ -135,6 +135,12 @@ def test_get_hosts_with_tags(tmp_path):
     assert [h[0] for h in hosts_db_app] == ["host-1", "host-3"]
     assert max_len_db_app == 6
 
+    # Filter with whitespace around comma
+    hosts_spaced, max_len_spaced = get_hosts(str(p), " db ,  app ")
+    assert len(hosts_spaced) == 2
+    assert [h[0] for h in hosts_spaced] == ["host-1", "host-3"]
+    assert max_len_spaced == 6
+
     # Filter for non-existent tag
     hosts_empty, max_len_zero = get_hosts(str(p), "nomatch")
     assert hosts_empty == []
@@ -497,3 +503,40 @@ host-no-user,10.0.0.4,22,   ,#,web
     assert hosts[0][0] == "valid-host"
     captured = capsys.readouterr()
     assert "empty required fields" in captured.out
+
+
+def test_get_hosts_tag_whitespace_handling(tmp_path):
+    """Test that tag filtering and tag definitions ignore leading/trailing whitespace."""
+    # Test CSV with spaced tags
+    csv_content = """
+host1,10.0.0.1,22,user1,#, web : prod 
+host2,10.0.0.2,22,user2,#,db:backend
+"""
+    p_csv = tmp_path / "hosts.csv"
+    p_csv.write_text(csv_content, encoding="utf-8")
+    hosts, _ = get_hosts(str(p_csv), "  web  ")
+    assert len(hosts) == 1
+    assert hosts[0][0] == "host1"
+
+    # Test TOML with spaced tags
+    toml_content = """
+[default]
+username = "user1"
+tags = [" common "]
+
+[host1]
+ip = "10.0.0.1"
+tags = [" web ", " frontend "]
+
+[host2]
+ip = "10.0.0.2"
+tags = ["db"]
+"""
+    p_toml = tmp_path / "hosts.toml"
+    p_toml.write_text(toml_content, encoding="utf-8")
+    hosts_toml, _ = get_hosts(str(p_toml), " frontend , other ")
+    assert len(hosts_toml) == 1
+    assert hosts_toml[0][0] == "host1"
+
+    hosts_default, _ = get_hosts(str(p_toml), "common")
+    assert len(hosts_default) == 2

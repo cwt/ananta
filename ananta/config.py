@@ -105,7 +105,9 @@ def _get_hosts_from_toml(
     """
     hosts_to_execute: list[Host] = []
     active_tags_filter: set[str] = (
-        set(host_tags_filter_str.split(",")) if host_tags_filter_str else set()
+        {tag.strip() for tag in host_tags_filter_str.split(",") if tag.strip()}
+        if host_tags_filter_str
+        else set()
     )
 
     try:
@@ -153,6 +155,8 @@ def _get_hosts_from_toml(
             "(must be a list of strings). Ignoring default tags."
         )
         default_tags = []
+    else:
+        default_tags = [tag.strip() for tag in default_tags if tag.strip()]
 
     try:
         default_timeout = _validate_timeout(float(defaults.get("timeout", 5.0)))
@@ -228,6 +232,10 @@ def _get_hosts_from_toml(
                     "invalid 'tags' (must be a list of strings). Treating as no tags."
                 )
                 current_host_tags_list = []
+            else:
+                current_host_tags_list = [
+                    tag.strip() for tag in current_host_tags_list if tag.strip()
+                ]
 
             if (
                 not active_tags_filter
@@ -273,7 +281,9 @@ def _get_hosts_from_csv(
     """
     hosts_to_execute: list[Host] = []
     active_tags_filter: set[str] = (
-        set(host_tags_filter_str.split(",")) if host_tags_filter_str else set()
+        {tag.strip() for tag in host_tags_filter_str.split(",") if tag.strip()}
+        if host_tags_filter_str
+        else set()
     )
 
     try:
@@ -320,7 +330,13 @@ def _get_hosts_from_csv(
                 # IndexError for key_path or tags_in_csv_str is avoided by conditional access
 
                 tags_list = (
-                    tags_in_csv_str.split(":") if tags_in_csv_str else []
+                    [
+                        tag.strip()
+                        for tag in tags_in_csv_str.split(":")
+                        if tag.strip()
+                    ]
+                    if tags_in_csv_str
+                    else []
                 )
                 if not active_tags_filter or not active_tags_filter.isdisjoint(
                     tags_list
