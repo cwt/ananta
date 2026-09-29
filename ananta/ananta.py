@@ -191,16 +191,11 @@ async def main(  # This is the non-TUI main function
         if result is not None and not isinstance(result, BaseException)
     }
 
-    # Report hosts that could not be connected (down/unreachable/auth).
+    # Report any unexpected exceptions from connecting hosts.
     for host_details, result in zip(hosts_to_execute, connect_results):
-        if isinstance(result, BaseException) or result is None:
-            error_text = (
-                str(result)
-                if isinstance(result, BaseException)
-                else "connection failed"
-            )
+        if isinstance(result, BaseException):
             await output_queues[host_details[0]].put(
-                f"Error connecting to {host_details[0]}: {error_text}"
+                f"Error connecting to {host_details[0]}: {result}"
             )
 
     # Any host-key mismatch stops the whole batch right here.
@@ -233,8 +228,12 @@ async def main(  # This is the non-TUI main function
                 return_exceptions=True,
             )
             for host_details, result in zip(retry_hosts, retry_results):
-                if isinstance(result, asyncssh.SSHClientConnection):
+                if result is not None and not isinstance(result, BaseException):
                     connections[host_details[0]] = result
+                elif isinstance(result, BaseException):
+                    await output_queues[host_details[0]].put(
+                        f"Error connecting to {host_details[0]}: {result}"
+                    )
             proceed = True
         if not proceed:
             # Abort before a single command runs; exit code 3 marks a
@@ -253,6 +252,17 @@ async def main(  # This is the non-TUI main function
                 await output_queue.put(None)
             await printing_task_group
             sys.exit(3)
+
+    remote_width = max(local_display_width - max_name_length - 3, 10)
+
+    # Finalize any hosts that could not be connected.
+    for host_details in hosts_to_execute:
+        host_name = host_details[0]
+        if host_name not in connections:
+            await output_queues[host_name].put(
+                get_end_marker(host_name, remote_width, color)
+            )
+            await output_queues[host_name].put(None)
 
     # ---- Phase 2: dispatch the command to every connected host ------------
 
@@ -273,9 +283,10 @@ async def main(  # This is the non-TUI main function
             color,
             timeout,
             retries,
-            conn=connections.get(host_name),
+            conn=connections[host_name],
         )
         for host_name, ip_address, ssh_port, username, key_path, timeout, retries in hosts_to_execute
+        if host_name in connections
     ]
 
     # Execute all command execution tasks concurrently

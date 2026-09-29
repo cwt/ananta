@@ -168,18 +168,24 @@ async def test_main_with_hosts_and_options(
     q2.put.assert_called_with(None)
 
 
+@patch("ananta.ananta.establish_ssh_connection", new_callable=AsyncMock)
 @patch("ananta.ananta.execute", new_callable=AsyncMock)
 @patch("ananta.ananta.print_output", new_callable=AsyncMock)
 @patch("ananta.ananta.get_hosts")
 @patch("ananta.ananta.asyncio.Queue")
 async def test_main_signals_printers_when_execute_raises(
-    mock_queue_cls, mock_get_hosts, mock_print_output, mock_execute
+    mock_queue_cls,
+    mock_get_hosts,
+    mock_print_output,
+    mock_execute,
+    mock_establish,
 ):
     """Regression: an unexpected exception escaping execute() must not leave
     print tasks hanging. End-of-output sentinels must still be delivered and
     printing tasks awaited before the error propagates."""
     hosts_data = [("host1", "10.0.0.1", 22, "user1", "/key1", 5.0, 2)]
     mock_get_hosts.return_value = (hosts_data, 5)
+    mock_establish.return_value = MagicMock(name="conn")
 
     q1 = MagicMock()
     q1.put = AsyncMock()
@@ -376,3 +382,73 @@ async def test_main_reports_added_keys_after_session(
     out = capsys.readouterr().out
     assert "Added 1 new host key(s)" in out
     assert "new-host (SHA256:FPR)" in out
+
+
+async def test_main_unreachable_host_reported_once_and_not_executed(
+    monkeypatch, tmp_path
+):
+    """Hosts failing connection in Phase 1 must not be executed or duplicated."""
+    from ananta.host_keys import HostKeyPolicy
+
+    kh = tmp_path / "known_hosts"
+    policy = HostKeyPolicy(known_hosts_path=kh)
+
+    def dummy_create_policy(**kwargs):
+        return policy
+
+    monkeypatch.setattr("ananta.ananta._create_policy", dummy_create_policy)
+
+    hosts_data = [
+        ("dead-host", "192.0.2.1", 22, "u1", "#", 5.0, 2),
+        ("live-host", "192.0.2.2", 22, "u2", "#", 5.0, 2),
+    ]
+    monkeypatch.setattr(
+        "ananta.ananta.get_hosts", MagicMock(return_value=(hosts_data, 9))
+    )
+
+    live_conn = MagicMock(name="live_conn")
+
+    async def fake_establish(
+        ip, port, user, key_path, dflt, timeout, retries, pol
+    ):
+        if ip == "192.0.2.1":
+            raise ConnectionError("Host down")
+        return live_conn
+
+    monkeypatch.setattr(
+        "ananta.ananta.establish_ssh_connection",
+        AsyncMock(side_effect=fake_establish),
+    )
+
+    q_dead, q_live = AsyncMock(), AsyncMock()
+    monkeypatch.setattr(
+        "ananta.ananta.asyncio.Queue", MagicMock(side_effect=[q_dead, q_live])
+    )
+    monkeypatch.setattr("ananta.ananta.print_output", AsyncMock())
+    mock_execute = AsyncMock()
+    monkeypatch.setattr("ananta.ananta.execute", mock_execute)
+
+    await main(
+        host_file="hosts.csv",
+        ssh_command="uptime",
+        local_display_width=80,
+        separate_output=False,
+        allow_empty_line=False,
+        allow_cursor_control=False,
+        default_key=None,
+        color=False,
+        host_tags=None,
+    )
+
+    # execute must only be called for live-host
+    mock_execute.assert_called_once()
+    assert mock_execute.call_args[0][0] == "live-host"
+
+    # dead-host error reported exactly once
+    error_calls = [
+        call
+        for call in q_dead.put.call_args_list
+        if "Error connecting to dead-host" in str(call)
+    ]
+    assert len(error_calls) == 1
+    assert "Host down" in str(error_calls[0])
