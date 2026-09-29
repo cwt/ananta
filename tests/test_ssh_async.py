@@ -136,6 +136,10 @@ async def test_stream_command_output_success():
     # Verify that terminate and wait were called
     mock_process.terminate.assert_called_once()
     mock_process.wait.assert_awaited_once()
+    assert (
+        mock_conn.create_process.call_args.kwargs.get("stderr")
+        == asyncssh.STDOUT
+    )
 
 
 async def test_stream_command_output_unicode_error():

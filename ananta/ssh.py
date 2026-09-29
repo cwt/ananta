@@ -217,6 +217,7 @@ async def stream_command_output(
             command=_build_remote_command(remote_width, ssh_command),
             term_type="ansi" if color else "dumb",
             term_size=(remote_width, LINES),
+            stderr=asyncssh.STDOUT,
             env={},
         )
         async for line in process.stdout:  # type: bytes | str
