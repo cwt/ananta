@@ -188,14 +188,15 @@ class HostKeyPolicy:
                 # Unknown host: TOFU. Persist and report later.
                 self._trust_new_key(entry, key, presented)
                 return True
-            self._mismatches.append(
-                MismatchRecord(
-                    entry=entry,
-                    old_fingerprint=self._fp_of_blob(recorded),
-                    new_fingerprint=key.get_fingerprint(),
-                    new_blob=presented,
+            if not any(m.entry == entry for m in self._mismatches):
+                self._mismatches.append(
+                    MismatchRecord(
+                        entry=entry,
+                        old_fingerprint=self._fp_of_blob(recorded),
+                        new_fingerprint=key.get_fingerprint(),
+                        new_blob=presented,
+                    )
                 )
-            )
             return False
 
     def _trust_new_key(

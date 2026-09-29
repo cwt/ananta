@@ -68,6 +68,11 @@ class TestValidateKey:
         assert len(policy.mismatches) == 1
         record = policy.mismatches[0]
         assert record.entry == "web-01"
+
+        # Repeated mismatch for same host entry does not create duplicate record
+        assert policy.validate_key("web-01", "web-01", key_b) is False
+        assert len(policy.mismatches) == 1
+
         # Nothing was persisted: mismatch never touches the file.
         assert len(known_hosts_file.read_text().strip().splitlines()) == 2
 
