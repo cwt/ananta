@@ -1,9 +1,10 @@
 import asyncio
 from unittest.mock import AsyncMock
 
+import asyncssh
 import pytest
 
-from ananta.ssh import stream_command_output
+from ananta.ssh import _close_ssh_connection, stream_command_output
 
 # Mark all tests in this file as asyncio tests
 pytestmark = pytest.mark.asyncio
@@ -126,3 +127,51 @@ async def test_stream_command_output_passes_width_in_env():
 
     _, kwargs = mock_conn.create_process.call_args
     assert "COLUMNS=10 LINES=1000 uptime" in kwargs["command"]
+
+
+def _make_timeout_error():
+    return asyncio.TimeoutError()
+
+
+def _make_asyncssh_error():
+    return asyncssh.DisconnectError(1, "Connection lost")
+
+
+def _make_os_error():
+    return ConnectionResetError("Connection reset by peer")
+
+
+@pytest.mark.parametrize(
+    "error_instance",
+    [
+        _make_timeout_error(),
+        _make_asyncssh_error(),
+        _make_os_error(),
+    ],
+)
+async def test_close_ssh_connection_suppresses_teardown_errors(error_instance):
+    """Graceful connection closure suppresses timeout, asyncssh, and OS errors."""
+    from unittest.mock import MagicMock
+
+    mock_conn = MagicMock()
+    mock_conn.is_closed.return_value = False
+    mock_conn.wait_closed = AsyncMock(side_effect=error_instance)
+
+    # Must complete without raising any exception
+    await _close_ssh_connection(mock_conn)
+    mock_conn.close.assert_called_once()
+    mock_conn.wait_closed.assert_called_once()
+
+
+async def test_close_ssh_connection_handles_none_and_already_closed():
+    """Closing None or already closed connection does nothing."""
+    from unittest.mock import MagicMock
+
+    await _close_ssh_connection(None)
+
+    mock_conn = MagicMock()
+    mock_conn.is_closed.return_value = True
+    mock_conn.wait_closed = AsyncMock()
+    await _close_ssh_connection(mock_conn)
+    mock_conn.close.assert_not_called()
+    mock_conn.wait_closed.assert_not_called()

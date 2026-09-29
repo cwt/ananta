@@ -260,7 +260,7 @@ async def _close_ssh_connection(
         try:
             conn.close()
             await asyncio.wait_for(conn.wait_closed(), timeout=2.0)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, asyncssh.Error, OSError):
             pass
 
 
