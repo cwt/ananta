@@ -139,15 +139,24 @@ class HostKeyPolicy:
         blob = self._entries.get(entry)
         if blob is not None:
             return blob
-        # Port-22 entries can be stored bare ("host") or explicitly ("[host]:22").
+        # Port-22 entries can be stored bare ("host"), explicitly ("[host]:22"),
+        # or bracketed without port ("[host]").
         if entry.endswith("]:22"):
             bare = entry[1:-4]
             blob = self._entries.get(bare) or self._entries.get(f"[{bare}]")
             if blob is not None:
                 return blob
+        elif entry.startswith("[") and entry.endswith("]"):
+            bare = entry[1:-1]
+            blob = self._entries.get(bare) or self._entries.get(f"[{bare}]:22")
+            if blob is not None:
+                return blob
         elif not entry.startswith("["):
             explicit_22 = f"[{entry}]:22"
-            blob = self._entries.get(explicit_22)
+            bracketed = f"[{entry}]"
+            blob = self._entries.get(explicit_22) or self._entries.get(
+                bracketed
+            )
             if blob is not None:
                 return blob
         for name, first_name in self._hashed_index:

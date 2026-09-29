@@ -143,6 +143,22 @@ class TestValidateKey:
         assert (
             policy.validate_key("[2001:db8::1]", "2001:db8::1", key_a) is True
         )
+        # Bare entry (from _host_entry_name on port 22) must also match bracketed entry in known_hosts
+        assert policy.validate_key("2001:db8::1", "2001:db8::1", key_a) is True
+        assert not policy.mismatches
+        assert not policy.added_keys
+
+    async def test_bare_entry_matches_bracketed_lookup(self, tmp_path, key_a):
+        kh = tmp_path / "known_hosts"
+        blob = _openssh_blob(key_a).split(maxsplit=1)[1]
+        kh.write_text(f"2001:db8::1 ssh-ed25519 {blob}\n", encoding="utf-8")
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        # Bracketed lookup must match bare entry in known_hosts
+        assert (
+            policy.validate_key("[2001:db8::1]", "2001:db8::1", key_a) is True
+        )
+        assert not policy.mismatches
+        assert not policy.added_keys
 
 
 class TestOverrides:
