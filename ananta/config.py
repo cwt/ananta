@@ -291,28 +291,31 @@ def _get_hosts_from_csv(
                     )
                     continue
 
+                host_name = row[0].strip()
+                ip_address = row[1].strip()
+                str_port = row[2].strip()
+                username = row[3].strip()
+                if not host_name or not ip_address or not username:
+                    print(
+                        f"Hosts file (CSV): '{csv_file_path}' row {row_line} has "
+                        "empty required fields (name, ip, user). Skipping!"
+                    )
+                    continue
                 try:
-                    host_name = row[0].strip()
-                    ip_address = row[1].strip()
-                    str_port = row[2].strip()
-                    username = row[3].strip()
-                    if not host_name or not ip_address or not username:
-                        print(
-                            f"Hosts file (CSV): '{csv_file_path}' row {row_line} has "
-                            "empty required fields (name, ip, user). Skipping!"
-                        )
-                        continue
-                    ssh_port = _validate_port(
-                        int(str_port)
-                    )  # ValueError here is specific to port format
-
+                    ssh_port = _validate_port(int(str_port))
                     key_path = row[4] if len(row) > 4 else ""
                     tags_in_csv_str = row[5] if len(row) > 5 else ""
-                except ValueError:  # Catches error from int(str_port)
-                    print(
-                        f"Hosts file (CSV): '{csv_file_path}' parse error at row {row_line} "
-                        "(port must be an integer). Skipping!"
-                    )
+                except ValueError as error:
+                    if "Port" in str(error):
+                        print(
+                            f"Hosts file (CSV): '{csv_file_path}' parse error at row {row_line} "
+                            f"({error}). Skipping!"
+                        )
+                    else:
+                        print(
+                            f"Hosts file (CSV): '{csv_file_path}' parse error at row {row_line} "
+                            "(port must be an integer). Skipping!"
+                        )
                     continue
                 # IndexError for key_path or tags_in_csv_str is avoided by conditional access
 

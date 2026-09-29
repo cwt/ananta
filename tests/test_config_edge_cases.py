@@ -218,6 +218,22 @@ def test_get_hosts_from_csv_invalid_port(tmp_path, capsys):
     assert hosts == []
     assert max_len == 0
     assert "parse error at row 1" in captured.out
+    assert "port must be an integer" in captured.out
+
+
+def test_get_hosts_from_csv_out_of_range_port(tmp_path, capsys):
+    """
+    Test that _get_hosts_from_csv handles an out-of-range port gracefully.
+    """
+    out_of_range_csv = tmp_path / "out_of_range_port.csv"
+    out_of_range_csv.write_text("host1,1.1.1.1,70000,user1")
+
+    hosts, max_len = _get_hosts_from_csv(str(out_of_range_csv), None)
+    captured = capsys.readouterr()
+
+    assert hosts == []
+    assert max_len == 0
+    assert "Port 70000 is not in valid range 1-65535" in captured.out
 
 
 def test_get_hosts_from_csv_file_not_found(capsys):
