@@ -480,3 +480,20 @@ def test_get_hosts_csv_file_not_found(tmp_path, capsys):
     assert max_len == 0
     captured = capsys.readouterr()
     assert "Error: CSV hosts file not found" in captured.out
+
+
+def test_get_hosts_csv_empty_required_fields(tmp_path, capsys):
+    """Test that CSV rows with empty name, ip, or user are skipped."""
+    csv_content = """
+valid-host,10.0.0.1,22,user1,#,web
+,10.0.0.2,22,user2,#,web
+host-no-ip,,22,user3,#,web
+host-no-user,10.0.0.4,22,   ,#,web
+"""
+    p = tmp_path / "hosts.csv"
+    p.write_text(csv_content, encoding="utf-8")
+    hosts, max_len = get_hosts(str(p), None)
+    assert len(hosts) == 1
+    assert hosts[0][0] == "valid-host"
+    captured = capsys.readouterr()
+    assert "empty required fields" in captured.out

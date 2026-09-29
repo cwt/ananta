@@ -292,7 +292,16 @@ def _get_hosts_from_csv(
                     continue
 
                 try:
-                    host_name, ip_address, str_port, username = row[:4]
+                    host_name = row[0].strip()
+                    ip_address = row[1].strip()
+                    str_port = row[2].strip()
+                    username = row[3].strip()
+                    if not host_name or not ip_address or not username:
+                        print(
+                            f"Hosts file (CSV): '{csv_file_path}' row {row_line} has "
+                            "empty required fields (name, ip, user). Skipping!"
+                        )
+                        continue
                     ssh_port = _validate_port(
                         int(str_port)
                     )  # ValueError here is specific to port format
