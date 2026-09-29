@@ -179,6 +179,9 @@ _THEME_PALETTE_FOREGROUNDS: dict[str, tuple[str, str]] = {
     "ansi_standout": ("standout", "standout"),
 }
 
+DEFAULT_MAX_OUTPUT_LINES = 5000
+DEFAULT_TRIM_OUTPUT_LINES = 500
+
 
 class AnantaUrwidTUI:
     """Ananta Text User Interface using Urwid."""
@@ -227,6 +230,8 @@ class AnantaUrwidTUI:
         self.host_fg_colors: dict[str, str] = {}
         self._populate_host_fg_colors()
         self.current_palette = self._build_palette()
+        self.max_output_lines = DEFAULT_MAX_OUTPUT_LINES
+        self.trim_output_lines = DEFAULT_TRIM_OUTPUT_LINES
         self.output_walker: urwid.SimpleFocusListWalker = (
             urwid.SimpleFocusListWalker([])
         )
@@ -402,15 +407,10 @@ class AnantaUrwidTUI:
             widget = urwid.Text(processed_markup)
 
         self.output_walker.append(widget)
-
-        rows: int = 24
-        if self.loop and self.loop.screen:
-            _, rows = self.loop.screen.get_cols_rows()
-        max_lines = rows * 10
-        trim_lines = rows
-        if len(self.output_walker) > max_lines:
+        if len(self.output_walker) > self.max_output_lines:
             del self.output_walker[
-                0 : len(self.output_walker) - (max_lines - trim_lines)
+                0 : len(self.output_walker)
+                - (self.max_output_lines - self.trim_output_lines)
             ]
 
         if scroll:

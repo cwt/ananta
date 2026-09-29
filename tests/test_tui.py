@@ -120,13 +120,11 @@ def test_tui_initialization_separate_output_warning():
 
 
 def test_add_output_trimming(mock_tui):
-    """Test that the output walker is trimmed when it gets too long."""
-    # Configure screen size to calculate max_lines
-    mock_tui.loop.screen.get_cols_rows.return_value = (80, 20)  # 20 rows
-    max_lines = 20 * 10  # rows * 10 -> 200
-    trim_lines = 20  # rows
+    """Test that the output walker is trimmed when it exceeds max_output_lines."""
+    mock_tui.max_output_lines = 200
+    mock_tui.trim_output_lines = 20
 
-    current_length = max_lines + 1
+    current_length = mock_tui.max_output_lines + 1
     # Make the mock walker report a length that exceeds the limit
     mock_tui.output_walker.__len__.return_value = current_length
 
@@ -138,10 +136,22 @@ def test_add_output_trimming(mock_tui):
     call_args = mock_tui.output_walker.__delitem__.call_args
     deleted_slice = call_args.args[0]
 
-    # This calculation now correctly matches the logic in the application code.
-    expected_stop_index = current_length - (max_lines - trim_lines)
+    # This calculation matches the logic in the application code.
+    expected_stop_index = current_length - (
+        mock_tui.max_output_lines - mock_tui.trim_output_lines
+    )
     assert deleted_slice.start == 0
     assert deleted_slice.stop == expected_stop_index
+
+
+def test_add_output_no_trimming_within_limits(mock_tui):
+    """Test that output is not trimmed when within max_output_lines."""
+    mock_tui.max_output_lines = 200
+    mock_tui.trim_output_lines = 20
+    mock_tui.output_walker.__len__.return_value = 150
+
+    mock_tui.add_output("A line within limits")
+    mock_tui.output_walker.__delitem__.assert_not_called()
 
 
 def test_add_output_when_exiting(mock_tui):
