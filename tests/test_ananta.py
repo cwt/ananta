@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 # ananta.ananta module, to be reloaded in some tests
 import ananta.ananta as ananta_module
-from ananta.ananta import run_cli
+from ananta.ananta import _resolve_display_width, run_cli
 
 
 @patch(
@@ -476,3 +476,44 @@ def test_run_cli_preserves_single_command_string(
 
     passed_command = mock_main_func.call_args[0][1]
     assert passed_command == "echo 'hello world' && uname -a"
+
+
+def test_resolve_display_width_cli_arg_positive():
+    """Valid positive CLI arg takes precedence."""
+    assert _resolve_display_width(120) == 120
+
+
+def test_resolve_display_width_cli_arg_non_positive_falls_back():
+    """Negative or zero CLI width falls back to environment or default."""
+    with patch.dict(os.environ, {"COLUMNS": "95"}):
+        assert _resolve_display_width(0) == 95
+        assert _resolve_display_width(-10) == 95
+
+
+def test_resolve_display_width_columns_env_positive():
+    """Valid positive COLUMNS environment variable is used when no CLI arg."""
+    with patch.dict(os.environ, {"COLUMNS": "110"}):
+        assert _resolve_display_width(None) == 110
+
+
+def test_resolve_display_width_columns_env_invalid():
+    """Invalid or non-positive COLUMNS falls back to terminal size or 80."""
+    with patch.dict(os.environ, {"COLUMNS": "invalid"}):
+        with patch("os.get_terminal_size", side_effect=OSError):
+            assert _resolve_display_width(None) == 80
+
+    with patch.dict(os.environ, {"COLUMNS": "-5"}):
+        with patch("os.get_terminal_size", side_effect=OSError):
+            assert _resolve_display_width(None) == 80
+
+    with patch.dict(os.environ, {"COLUMNS": "0"}):
+        with patch("os.get_terminal_size", side_effect=OSError):
+            assert _resolve_display_width(None) == 80
+
+
+def test_resolve_display_width_terminal_size():
+    """os.get_terminal_size() is used when no CLI arg and no COLUMNS env."""
+    mock_size = MagicMock(columns=132)
+    with patch.dict(os.environ, {}, clear=True):
+        with patch("os.get_terminal_size", return_value=mock_size):
+            assert _resolve_display_width(None) == 132

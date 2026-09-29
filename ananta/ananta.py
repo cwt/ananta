@@ -326,23 +326,28 @@ def _get_loop_module_name() -> str:
 def _resolve_display_width(terminal_width_arg: int | None) -> int:
     """Resolve display width from CLI arg, COLUMNS env var, or terminal size.
 
-    An invalid COLUMNS value falls back to terminal size detection rather
-    than skipping it.
+    An invalid or non-positive value falls back to terminal size detection
+    and defaults to 80.
     """
-    if terminal_width_arg:
+    if terminal_width_arg is not None and terminal_width_arg > 0:
         return terminal_width_arg
 
     columns_env = os.environ.get("COLUMNS")
     if columns_env:
         try:
-            return int(columns_env)
+            cols = int(columns_env)
+            if cols > 0:
+                return cols
         except ValueError:
             pass  # Invalid COLUMNS; fall through to terminal size detection
 
     try:
-        return os.get_terminal_size().columns
+        cols = os.get_terminal_size().columns
+        if cols > 0:
+            return cols
     except OSError:
-        return 80
+        pass
+    return 80
 
 
 def run_cli() -> None:
