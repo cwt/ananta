@@ -286,3 +286,13 @@ def test_build_attr_spec_invalid_spec_falls_back():
     spec = _build_attr_spec("invalid_color_xyz", "invalid_bg_xyz", ())
     assert spec.foreground == "default"
     assert spec.background == "default"
+
+
+def test_ansi_bg_color_map_derived():
+    """Verify that background color map is correctly derived from foreground map."""
+    from ananta.tui.ansi import _ANSI_BG_COLOR_MAP, _ANSI_FG_COLOR_MAP
+
+    for fg_code, color in _ANSI_FG_COLOR_MAP.items():
+        bg_code = str(int(fg_code) + 10)
+        assert bg_code in _ANSI_BG_COLOR_MAP
+        assert _ANSI_BG_COLOR_MAP[bg_code] == color

@@ -216,23 +216,9 @@ _ANSI_FG_COLOR_MAP = {
     "96": "light cyan",
     "97": "white",
 }
+# Background colors (40-47, 100-107) correspond to foreground colors (30-37, 90-97) offset by 10.
 _ANSI_BG_COLOR_MAP = {
-    "40": "black",
-    "41": "dark red",
-    "42": "dark green",
-    "43": "brown",
-    "44": "dark blue",
-    "45": "dark magenta",
-    "46": "dark cyan",
-    "47": "light gray",
-    "100": "dark gray",
-    "101": "light red",
-    "102": "light green",
-    "103": "yellow",
-    "104": "light blue",
-    "105": "light magenta",
-    "106": "light cyan",
-    "107": "white",
+    str(int(code) + 10): color for code, color in _ANSI_FG_COLOR_MAP.items()
 }
 
 
