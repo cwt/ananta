@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import asyncssh
 import pytest
@@ -160,6 +160,67 @@ async def test_retry_connect_fails_after_all_retries_ssh_error(host_key_policy):
         )
         assert mock_connect.call_count == max_retries + 1
         assert mock_sleep.call_count == max_retries
+
+
+async def test_retry_connect_fails_after_all_retries_os_error(host_key_policy):
+    """Tests connection failure after all retries due to OSError (e.g. connection refused)."""
+    with (
+        patch(
+            "ananta.ssh.asyncssh.connect", new_callable=AsyncMock
+        ) as mock_connect,
+        patch("ananta.ssh.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
+        max_retries = 2
+        simulated_error = ConnectionRefusedError("Connection refused")
+        mock_connect.side_effect = [
+            simulated_error for _ in range(max_retries + 1)
+        ]
+
+        with pytest.raises(ConnectionError) as excinfo:
+            await retry_connect(
+                ip_address="10.0.0.1",
+                ssh_port=22,
+                username="user",
+                client_keys=["/key"],
+                timeout=0.1,
+                max_retries=max_retries,
+                policy=host_key_policy,
+            )
+
+        assert f"Error connecting to 10.0.0.1: {simulated_error}" in str(
+            excinfo.value
+        )
+        assert mock_connect.call_count == max_retries + 1
+        assert mock_sleep.call_count == max_retries
+
+
+async def test_retry_connect_succeeds_after_transient_os_error(host_key_policy):
+    """Tests transient OSError on first attempt followed by successful connection."""
+    with (
+        patch(
+            "ananta.ssh.asyncssh.connect", new_callable=AsyncMock
+        ) as mock_connect,
+        patch("ananta.ssh.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
+        mock_conn = MagicMock()
+        mock_connect.side_effect = [
+            OSError("Network unreachable"),
+            mock_conn,
+        ]
+
+        conn = await retry_connect(
+            ip_address="10.0.0.1",
+            ssh_port=22,
+            username="user",
+            client_keys=["/key"],
+            timeout=0.1,
+            max_retries=2,
+            policy=host_key_policy,
+        )
+
+        assert conn is mock_conn
+        assert mock_connect.call_count == 2
+        assert mock_sleep.call_count == 1
 
 
 async def test_retry_connect_key_exchange_failure_then_fails_again(

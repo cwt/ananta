@@ -28,7 +28,7 @@ async def retry_connect(
     Host-key verification is delegated to ``policy`` via a custom asyncssh
     client hook; a detected key change fails fast without retries.
     """
-    last_error: asyncssh.Error | asyncio.TimeoutError | None = None
+    last_error: asyncssh.Error | OSError | asyncio.TimeoutError | None = None
     algorithm_options = {
         "encryption_algs": [
             "aes128-gcm@openssh.com",
@@ -61,7 +61,7 @@ async def retry_connect(
                 ),
                 timeout=timeout,
             )
-        except asyncssh.Error as error:
+        except (asyncssh.Error, OSError) as error:
             last_error = error
             new_mismatches = policy.mismatches[mismatches_seen:]
             if any(m.entry == entry for m in new_mismatches):
@@ -285,7 +285,7 @@ async def execute(
             )
     except ConnectionError as error:
         await output_queue.put(f"Error connecting to {host_name}: {error}")
-    except RuntimeError as error:
+    except (RuntimeError, OSError) as error:
         await output_queue.put(
             f"Error executing command on {host_name}: {error}"
         )
