@@ -11,11 +11,20 @@ Host = tuple[str, str, int, str, str, float, int]
 # Conditional import for TOML parsing
 if sys.version_info >= (3, 11):
     import tomllib
+
+    TOMLDecodeError: type[Exception] = tomllib.TOMLDecodeError
 else:
     try:
         import tomli as tomllib  # Alias tomli as tomllib for consistent use
+
+        TOMLDecodeError = tomllib.TOMLDecodeError
     except ImportError:
         tomllib = None  # type: ModuleType | None
+
+        class _MissingTOMLDecodeError(ValueError):
+            pass
+
+        TOMLDecodeError = _MissingTOMLDecodeError
 
 
 def _load_toml_data(toml_file_path: str) -> dict[str, Any]:
@@ -118,7 +127,7 @@ def _get_hosts_from_toml(
     except RuntimeError as e:
         print(f"Error: {e}")
         return [], 0
-    except tomllib.TOMLDecodeError if tomllib else Exception as e:
+    except TOMLDecodeError as e:
         print(f"Error decoding TOML file '{toml_file_path}': {e}")
         return [], 0
     except Exception as e:
