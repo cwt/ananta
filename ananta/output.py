@@ -139,7 +139,7 @@ async def print_output(
     print_lock: asyncio.Lock,
     output_queue: asyncio.Queue,
     color: bool,
-):
+) -> None:
     """Print the output from the remote host with the appropriate prompt."""
     prompt = get_prompt(host_name, max_name_length, color)
 
