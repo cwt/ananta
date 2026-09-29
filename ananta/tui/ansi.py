@@ -107,8 +107,29 @@ def _strip_ansi_control_sequences(text: str) -> str:
         text = _NON_SGR_CSI_SEQUENCES.sub("", text)
 
     if "\r" in text:
-        if not text.endswith("\r") and not text.endswith("\r\n"):
-            text = text.split("\r")[-1]
+        line_ending = ""
+        if text.endswith("\r\n"):
+            line_ending = "\r\n"
+            content = text[:-2]
+        elif text.endswith("\n"):
+            line_ending = "\n"
+            content = text[:-1]
+        elif text.endswith("\r"):
+            line_ending = "\r"
+            content = text[:-1]
+        else:
+            content = text
+
+        if "\r" in content:
+            parts = content.split("\r")
+            chosen = ""
+            for part in reversed(parts):
+                if part:
+                    chosen = part
+                    break
+            content = chosen
+
+        text = content + line_ending
 
     return text
 

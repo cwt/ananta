@@ -20,6 +20,18 @@ pytestmark = pytest.mark.tui
             "line1\rline2",
             "line2",
         ),  # Only the part after the last carriage return is kept
+        ("line1\rline2\r\n", "line2\r\n"),  # Carriage return with trailing CRLF
+        ("line1\rline2\n", "line2\n"),  # Carriage return with trailing LF
+        ("line1\rline2\r", "line2\r"),  # Carriage return with trailing CR
+        (
+            "step1\rstep2\rstep3\r\n",
+            "step3\r\n",
+        ),  # Multiple carriage returns with CRLF
+        ("\rhello\r\n", "hello\r\n"),  # Leading carriage return with CRLF
+        (
+            "line1\r\r\rline2\r\n",
+            "line2\r\n",
+        ),  # Consecutive carriage returns with CRLF
         # C0 control characters are stripped
         ("bell\x07here", "bellhere"),
         ("a\x0bb", "ab"),
