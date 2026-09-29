@@ -165,6 +165,21 @@ class RefreshingPile(urwid.Pile):
         return result
 
 
+_THEME_PALETTE_FOREGROUNDS: dict[str, tuple[str, str]] = {
+    # attr_name: (dark_foreground, light_foreground)
+    "status_ok": ("light green", "dark green"),
+    "status_error": ("light red", "dark red"),
+    "status_neutral": ("yellow", "brown"),
+    "command_echo": ("light cyan,bold", "dark blue,bold"),
+    "body": ("white", "black"),
+    "input_prompt": ("light blue", "dark blue"),
+    "input_prompt_inactive": ("dark gray", "light gray"),
+    "ansi_bold": ("bold", "bold"),
+    "ansi_underline": ("underline", "underline"),
+    "ansi_standout": ("standout", "standout"),
+}
+
+
 class AnantaUrwidTUI:
     """Ananta Text User Interface using Urwid."""
 
@@ -172,53 +187,11 @@ class AnantaUrwidTUI:
         self,
     ) -> list[tuple[str, str, str, None, None, None]]:
         """Return the default palette based on theme."""
-        if self.light_theme:
-            return [
-                ("status_ok", "dark green", "default", None, None, None),
-                ("status_error", "dark red", "default", None, None, None),
-                ("status_neutral", "brown", "default", None, None, None),
-                ("command_echo", "dark blue,bold", "default", None, None, None),
-                ("body", "black", "default", None, None, None),
-                ("input_prompt", "dark blue", "default", None, None, None),
-                (
-                    "input_prompt_inactive",
-                    "light gray",
-                    "default",
-                    None,
-                    None,
-                    None,
-                ),
-                ("ansi_bold", "bold", "default", None, None, None),
-                ("ansi_underline", "underline", "default", None, None, None),
-                ("ansi_standout", "standout", "default", None, None, None),
-            ]
-        else:
-            return [
-                ("status_ok", "light green", "default", None, None, None),
-                ("status_error", "light red", "default", None, None, None),
-                ("status_neutral", "yellow", "default", None, None, None),
-                (
-                    "command_echo",
-                    "light cyan,bold",
-                    "default",
-                    None,
-                    None,
-                    None,
-                ),
-                ("body", "white", "default", None, None, None),
-                ("input_prompt", "light blue", "default", None, None, None),
-                (
-                    "input_prompt_inactive",
-                    "dark gray",
-                    "default",
-                    None,
-                    None,
-                    None,
-                ),
-                ("ansi_bold", "bold", "default", None, None, None),
-                ("ansi_underline", "underline", "default", None, None, None),
-                ("ansi_standout", "standout", "default", None, None, None),
-            ]
+        fg_index = 1 if self.light_theme else 0
+        return [
+            (name, fgs[fg_index], "default", None, None, None)
+            for name, fgs in _THEME_PALETTE_FOREGROUNDS.items()
+        ]
 
     def __init__(
         self,

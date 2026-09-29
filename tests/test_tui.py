@@ -397,3 +397,27 @@ class TestRequestDrawErrorHandling:
         tui.asyncio_loop.is_closed.return_value = True
         tui._request_draw()
         tui.loop.draw_screen.assert_not_called()
+
+
+def test_default_palette_light_and_dark(mock_tui):
+    """Verify that light and dark palettes produce expected entries."""
+    mock_tui.light_theme = False
+    dark_palette = mock_tui._get_default_palette()
+    assert any(
+        entry[0] == "status_ok" and entry[1] == "light green"
+        for entry in dark_palette
+    )
+    assert any(
+        entry[0] == "body" and entry[1] == "white" for entry in dark_palette
+    )
+
+    mock_tui.light_theme = True
+    light_palette = mock_tui._get_default_palette()
+    assert any(
+        entry[0] == "status_ok" and entry[1] == "dark green"
+        for entry in light_palette
+    )
+    assert any(
+        entry[0] == "body" and entry[1] == "black" for entry in light_palette
+    )
+    assert len(dark_palette) == len(light_palette)
