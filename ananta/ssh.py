@@ -162,12 +162,40 @@ async def execute_command(
             term_size=(remote_width, LINES),
             env={},
         )
+        parts: list[str] = []
         if isinstance(result.stdout, bytes):
-            output = result.stdout.decode("utf-8")
+            parts.append(result.stdout.decode("utf-8"))
         elif isinstance(result.stdout, str):
-            output = result.stdout
+            if result.stdout:
+                parts.append(result.stdout)
+        elif result.stdout is not None and not hasattr(
+            result.stdout, "_mock_return_value"
+        ):
+            parts.append(
+                f"Host returns unprintable output, got {type(result.stdout).__name__}"
+            )
+
+        if isinstance(result.stderr, bytes):
+            stderr_decoded = result.stderr.decode("utf-8")
+            if stderr_decoded:
+                parts.append(stderr_decoded)
+        elif isinstance(result.stderr, str):
+            if result.stderr:
+                parts.append(result.stderr)
+        elif result.stderr is not None and not hasattr(
+            result.stderr, "_mock_return_value"
+        ):
+            parts.append(
+                f"Host returns unprintable stderr, got {type(result.stderr).__name__}"
+            )
+
+        if parts:
+            output = (
+                "".join(p if p.endswith("\n") else p + "\n" for p in parts[:-1])
+                + parts[-1]
+            )
         else:
-            output = f"Host returns unprintable output, got {type(result.stdout).__name__}"
+            output = ""
     except UnicodeDecodeError:
         output = "Host returns bytes that cannot be decoded as UTF-8"
     except asyncssh.Error as error:

@@ -83,6 +83,32 @@ async def test_execute_command_asyncssh_error():
     mock_conn.close.assert_not_called()
 
 
+async def test_execute_command_captures_stderr():
+    """Test execute_command captures stderr alongside stdout."""
+    mock_conn = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.stdout = "some stdout\n"
+    mock_result.stderr = "some stderr warning"
+    mock_conn.run.return_value = mock_result
+
+    output = await execute_command(mock_conn, "a command", 80, False)
+
+    assert output == "some stdout\nsome stderr warning"
+
+
+async def test_execute_command_captures_bytes_stderr():
+    """Test execute_command captures bytes stderr when stdout is empty."""
+    mock_conn = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.stdout = ""
+    mock_result.stderr = b"error bytes"
+    mock_conn.run.return_value = mock_result
+
+    output = await execute_command(mock_conn, "a command", 80, False)
+
+    assert output == "error bytes"
+
+
 async def test_stream_command_output_success():
     """Test stream_command_output with successful streaming."""
     mock_conn = AsyncMock()
