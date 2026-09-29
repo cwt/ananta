@@ -195,28 +195,38 @@ def _get_hosts_from_toml(
 
         ip_address: str | None = host_config.get("ip")
         # ip_address accepts both IP address and resolvable hostname
-        if not ip_address or not isinstance(ip_address, str):
+        if (
+            not ip_address
+            or not isinstance(ip_address, str)
+            or not ip_address.strip()
+        ):
             print(
                 f"Warning: Host '{host_name}' in '{toml_file_path}' is missing "
                 "'ip' or 'ip' is not a string. Skipping!"
             )
             continue
+        ip_address = ip_address.strip()
 
         try:
             port_str = host_config.get("port", default_port)
             ssh_port = int(port_str)
             ssh_port = _validate_port(ssh_port)
             username = host_config.get("username", default_username)
-            if not username or not isinstance(username, str):
+            if (
+                not username
+                or not isinstance(username, str)
+                or not username.strip()
+            ):
                 print(
                     f"Warning: Host '{host_name}' in '{toml_file_path}' is missing "
                     "'username' or 'username' is not a string. Skipping!"
                 )
                 continue
+            username = username.strip()
             raw_key_path = host_config.get("key_path", default_key_path)
             key_path = (
                 str(raw_key_path).strip()
-                if raw_key_path
+                if raw_key_path and str(raw_key_path).strip()
                 else UNSPECIFIED_KEY_PATH
             )
             try:

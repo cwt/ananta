@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from ananta.config import (
+    UNSPECIFIED_KEY_PATH,
     _get_hosts_from_csv,
     _get_hosts_from_toml,
     _load_toml_data,
@@ -370,3 +371,58 @@ def test_get_hosts_from_csv_indented_comments_and_blank_lines(tmp_path, capsys):
     assert hosts[1][0] == "host-2"
     assert "incomplete" not in captured.out
     assert "empty required fields" not in captured.out
+
+
+def test_get_hosts_from_toml_strips_whitespace_fields(tmp_path):
+    """Test that TOML ip, username, and key_path fields are stripped of surrounding whitespace."""
+    toml_file = tmp_path / "whitespace_hosts.toml"
+    toml_file.write_text("""
+[host1]
+ip = "  192.168.1.10  "
+port = 22
+username = "  admin  "
+key_path = "  /path/to/key  "
+""")
+    hosts, _ = _get_hosts_from_toml(str(toml_file), None)
+    assert len(hosts) == 1
+    host = hosts[0]
+    assert host[1] == "192.168.1.10"
+    assert host[3] == "admin"
+    assert host[4] == "/path/to/key"
+
+
+def test_get_hosts_from_toml_whitespace_only_key_path_normalizes(tmp_path):
+    """Test that whitespace-only key_path in TOML falls back to UNSPECIFIED_KEY_PATH."""
+    toml_file = tmp_path / "blank_key_path.toml"
+    toml_file.write_text("""
+[host1]
+ip = "192.168.1.10"
+port = 22
+username = "admin"
+key_path = "    "
+""")
+    hosts, _ = _get_hosts_from_toml(str(toml_file), None)
+    assert len(hosts) == 1
+    assert hosts[0][4] == UNSPECIFIED_KEY_PATH
+
+
+def test_get_hosts_from_toml_whitespace_only_ip_or_user_skipped(
+    tmp_path, capsys
+):
+    """Test that hosts with whitespace-only ip or username are rejected with warnings."""
+    toml_file = tmp_path / "empty_fields.toml"
+    toml_file.write_text("""
+[empty_ip]
+ip = "   "
+username = "admin"
+
+[empty_user]
+ip = "192.168.1.10"
+username = "   "
+""")
+    hosts, _ = _get_hosts_from_toml(str(toml_file), None)
+    captured = capsys.readouterr()
+
+    assert hosts == []
+    assert "missing 'ip' or 'ip' is not a string" in captured.out
+    assert "missing 'username' or 'username' is not a string" in captured.out
