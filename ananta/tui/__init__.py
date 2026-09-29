@@ -221,10 +221,6 @@ class AnantaUrwidTUI:
                 ("ansi_standout", "standout", "default", None, None, None),
             ]
 
-    @property
-    def DEFAULT_PALETTE(self) -> list[tuple[str, str, str, None, None, None]]:
-        return self._get_default_palette()
-
     def __init__(
         self,
         host_file: str,
@@ -379,7 +375,7 @@ class AnantaUrwidTUI:
 
     def _build_palette(self) -> list[tuple[str | None, ...]]:
         """Build the complete palette for Urwid, including default and host-specific styles."""
-        palette = list(self.DEFAULT_PALETTE)
+        palette = list(self._get_default_palette())
         palette.extend(
             (attr_name, fg_color, "default", None, None, None)
             for attr_name, fg_color in self.host_fg_colors.items()
