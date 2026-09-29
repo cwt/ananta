@@ -256,7 +256,10 @@ async def _make_verified_session(monkeypatch, tmp_path, mismatch_host=None):
             return conns["ok"]
         return conns["ok"]
 
-    monkeypatch.setattr("ananta.ananta._create_policy", lambda **kw: policy)
+    def mock_create_policy(**_kwargs):
+        return policy
+
+    monkeypatch.setattr("ananta.ananta._create_policy", mock_create_policy)
     establish_mock = AsyncMock(side_effect=fake_establish)
     monkeypatch.setattr(
         "ananta.ananta.establish_ssh_connection", establish_mock
@@ -351,7 +354,10 @@ async def test_main_reports_added_keys_after_session(
     policy = HostKeyPolicy(known_hosts_path=kh)
     policy._added.append(("new-host", "SHA256:FPR"))
 
-    monkeypatch.setattr("ananta.ananta._create_policy", lambda **kw: policy)
+    def mock_create_policy(**_kwargs):
+        return policy
+
+    monkeypatch.setattr("ananta.ananta._create_policy", mock_create_policy)
     monkeypatch.setattr(
         "ananta.ananta.establish_ssh_connection",
         AsyncMock(return_value=MagicMock()),
