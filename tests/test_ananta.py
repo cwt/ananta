@@ -420,3 +420,59 @@ def test_importing_ananta_does_not_install_global_warning_filters():
         "Importing ananta installed a global warning filter: "
         + result.stderr.decode()
     )
+
+
+@patch("ananta.ananta.main", new_callable=AsyncMock)
+@patch("ananta.ananta.argparse.ArgumentParser.parse_args")
+def test_run_cli_preserves_quoted_command_arguments(
+    mock_parse_args, mock_main_func
+):
+    """Multiple command arguments must preserve quote boundaries via shlex.join."""
+    mock_parse_args.return_value = MagicMock(
+        host_file="hosts.csv",
+        command=["bash", "-c", "echo hello && echo world"],
+        version=False,
+        terminal_width=80,
+        tui=False,
+        tui_light=False,
+        no_color=False,
+        separate_output=False,
+        allow_empty_line=False,
+        allow_cursor_control=False,
+        default_key=None,
+        host_tags=None,
+        override_mismatched_keys=False,
+    )
+    with patch("ananta.ananta.uvloop", None):
+        run_cli()
+
+    passed_command = mock_main_func.call_args[0][1]
+    assert passed_command == "bash -c 'echo hello && echo world'"
+
+
+@patch("ananta.ananta.main", new_callable=AsyncMock)
+@patch("ananta.ananta.argparse.ArgumentParser.parse_args")
+def test_run_cli_preserves_single_command_string(
+    mock_parse_args, mock_main_func
+):
+    """A single command string must be passed through without unnecessary extra quotes."""
+    mock_parse_args.return_value = MagicMock(
+        host_file="hosts.csv",
+        command=["echo 'hello world' && uname -a"],
+        version=False,
+        terminal_width=80,
+        tui=False,
+        tui_light=False,
+        no_color=False,
+        separate_output=False,
+        allow_empty_line=False,
+        allow_cursor_control=False,
+        default_key=None,
+        host_tags=None,
+        override_mismatched_keys=False,
+    )
+    with patch("ananta.ananta.uvloop", None):
+        run_cli()
+
+    passed_command = mock_main_func.call_args[0][1]
+    assert passed_command == "echo 'hello world' && uname -a"

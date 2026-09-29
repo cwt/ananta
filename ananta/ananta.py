@@ -8,6 +8,7 @@ automate repetitive tasks, and save time and effort.
 import argparse
 import asyncio
 import os
+import shlex
 import sys
 from types import ModuleType
 
@@ -448,7 +449,10 @@ def run_cli() -> None:
     ssh_command_list: list[str] = (
         args.command
     )  # Keep as list for TUI initial command
-    ssh_command_str: str = " ".join(ssh_command_list)
+    if len(ssh_command_list) == 1:
+        ssh_command_str = ssh_command_list[0]
+    else:
+        ssh_command_str = shlex.join(ssh_command_list)
 
     if not host_file:
         parser.print_help()
