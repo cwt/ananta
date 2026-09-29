@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Urwid-based Text User Interface for Ananta.
 Manages asynchronous SSH connections and command execution on multiple remote hosts.
@@ -482,6 +481,9 @@ class AnantaUrwidTUI:
                     )
                 ]
             )
+        except asyncio.CancelledError:
+            self.connections[host_name] = None
+            raise
         except Exception as e:
             self.connections[host_name] = None
             self.add_output(
@@ -611,9 +613,6 @@ class AnantaUrwidTUI:
                     )
             except asyncio.CancelledError:
                 pass
-            except Exception as e:
-                # Should not raise exception from done callback, but be safe
-                output_queue.put_nowait(f"Cmd error: {type(e).__name__} {e}")
             output_queue.put_nowait(None)
 
         stream_task.add_done_callback(done_cb)
@@ -646,6 +645,8 @@ class AnantaUrwidTUI:
                         break
                     self._display_stream_line(host_name, prompt, line_data)
 
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             if not self.is_exiting:
                 self.add_output(
@@ -790,7 +791,7 @@ class AnantaUrwidTUI:
         try:
             self.loop.screen.set_terminal_properties(colors=256)  # type: ignore
             self.loop.screen.set_mouse_tracking(True)
-        except Exception:
+        except (AttributeError, OSError):
             pass
 
         self.loop.event_loop.alarm(0, self._initial_setup_tasks)

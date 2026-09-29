@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from importlib.metadata import version
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
@@ -452,3 +453,25 @@ async def test_main_unreachable_host_reported_once_and_not_executed(
     ]
     assert len(error_calls) == 1
     assert "Host down" in str(error_calls[0])
+
+
+@pytest.mark.asyncio
+async def test_open_connection_cancelled():
+    """Test that connection cancellation re-raises CancelledError."""
+    from ananta.ananta import _open_connection
+
+    q = AsyncMock()
+    with patch(
+        "ananta.ananta.establish_ssh_connection",
+        side_effect=asyncio.CancelledError,
+    ):
+        with pytest.raises(asyncio.CancelledError):
+            await _open_connection(
+                ("h1", "127.0.0.1", 22, "u", "#", 5.0, 2),
+                None,
+                q,
+                False,
+                80,
+                2,
+                MagicMock(),
+            )

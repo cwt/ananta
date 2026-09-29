@@ -231,6 +231,7 @@ def test_ansi_to_urwid_markup(input_str, expected_markup):
     # Compare AttrSpec properties and text content
     assert len(result) == len(expected_markup)
     for res_item, exp_item in zip(result, expected_markup):
+        assert isinstance(res_item, tuple)
         res_spec, res_text = res_item
         exp_spec, exp_text = exp_item
         assert res_text == exp_text

@@ -226,6 +226,35 @@ async def test_connect_host_success(mock_tui):
 
 
 @pytest.mark.asyncio
+async def test_connect_host_cancelled(mock_tui):
+    """Test that connection cancellation sets host connection to None and re-raises."""
+    with patch(
+        "ananta.tui.establish_ssh_connection",
+        new_callable=AsyncMock,
+        side_effect=asyncio.CancelledError,
+    ):
+        host_details = mock_tui.hosts[0]
+        with pytest.raises(asyncio.CancelledError):
+            await mock_tui.connect_host(*host_details)
+        assert mock_tui.connections["host-1"] is None
+
+
+@pytest.mark.asyncio
+async def test_connect_host_failure(mock_tui):
+    """Test that unexpected connection failure sets connection to None and outputs error."""
+    with patch(
+        "ananta.tui.establish_ssh_connection",
+        new_callable=AsyncMock,
+        side_effect=OSError("network unreachable"),
+    ):
+        host_details = mock_tui.hosts[0]
+        await mock_tui.connect_host(*host_details)
+        assert mock_tui.connections["host-1"] is None
+        markup_calls = [c.args[0] for c in mock_tui.urwid.Text.call_args_list]
+        assert any("Connection failed" in str(m) for m in markup_calls)
+
+
+@pytest.mark.asyncio
 async def test_run_command_interleaved_output_and_empty_lines(mock_tui):
     """Tests interleaved command output and empty line handling."""
     mock_tui.asyncio_loop = asyncio.get_running_loop()

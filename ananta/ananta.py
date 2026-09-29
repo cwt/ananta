@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Ananta: a command-line tool that allows users to execute commands on multiple
 remote hosts at once via SSH. With Ananta, you can streamline your workflow,
@@ -76,7 +75,9 @@ async def _open_connection(
             retries,
             policy,
         )
-    except Exception as error:
+    except asyncio.CancelledError:
+        raise
+    except (asyncssh.Error, OSError, ValueError) as error:
         await output_queue.put(f"Error connecting to {host_name}: {error}")
         return None
 
@@ -296,8 +297,8 @@ async def main(  # This is the non-TUI main function
         await asyncio.gather(*exec_tasks)
     finally:
         # Signal end of output even if a task failed, so print tasks never hang.
-        for host_name in output_queues:
-            await output_queues[host_name].put(None)
+        for queue in output_queues.values():
+            await queue.put(None)
 
         # Wait for all printing tasks to complete (they exit on the sentinel)
         await printing_task_group

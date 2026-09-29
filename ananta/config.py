@@ -278,7 +278,7 @@ def _get_hosts_from_toml(
                     f"Hosts file (TOML) '{toml_file_path}': Error parsing port for "
                     f"host '{host_name}'. Port must be an integer. Skipping!"
                 )
-        except Exception as e:
+        except (KeyError, TypeError) as e:
             print(
                 f"Hosts file (TOML) '{toml_file_path}': Unexpected error processing "
                 f"host '{host_name}': {e}. Skipping!"
