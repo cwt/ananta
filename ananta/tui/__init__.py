@@ -142,7 +142,6 @@ class AnantaMainLoop(urwid.MainLoop):
         Override the base method to prevent automatic screen redraws on idle.
         This helps avoid `BlockingIOError` by giving us manual control over the redraw cycle.
         """
-        pass
 
 
 class RefreshingPile(urwid.Pile):
