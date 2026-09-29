@@ -18,7 +18,7 @@ _URWID_SUPPORTED_STYLES = {
 }
 
 
-@functools.lru_cache(maxsize=256)
+@functools.lru_cache(maxsize=4096)
 def _build_attr_spec(
     fg: str, bg: str, styles: tuple[str, ...]
 ) -> urwid.AttrSpec:

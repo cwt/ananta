@@ -296,3 +296,10 @@ def test_ansi_bg_color_map_derived():
         bg_code = str(int(fg_code) + 10)
         assert bg_code in _ANSI_BG_COLOR_MAP
         assert _ANSI_BG_COLOR_MAP[bg_code] == color
+
+
+def test_build_attr_spec_cache_capacity():
+    """Verify that _build_attr_spec has expanded cache capacity for high-color terminals."""
+    from ananta.tui.ansi import _build_attr_spec
+
+    assert _build_attr_spec.cache_info().maxsize == 4096
