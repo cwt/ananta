@@ -478,3 +478,26 @@ async def test_open_connection_cancelled():
                 q,
                 MagicMock(),
             )
+
+
+@pytest.mark.asyncio
+async def test_open_connection_sets_keepalive():
+    """Pre-flight connections must enable TCP keepalive like the TUI."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from ananta.ananta import _open_connection
+
+    mock_conn = MagicMock()
+    with patch(
+        "ananta.ananta.establish_ssh_connection",
+        new_callable=AsyncMock,
+        return_value=mock_conn,
+    ):
+        result = await _open_connection(
+            ("h1", "127.0.0.1", 22, "u", "#", 5.0, 2),
+            None,
+            AsyncMock(),
+            MagicMock(),
+        )
+    assert result is mock_conn
+    mock_conn.set_keepalive.assert_called_once_with(interval=30, count_max=3)

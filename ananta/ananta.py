@@ -65,7 +65,7 @@ async def _open_connection(
         host_details
     )
     try:
-        return await establish_ssh_connection(
+        conn = await establish_ssh_connection(
             ip_address,
             ssh_port,
             username,
@@ -80,6 +80,11 @@ async def _open_connection(
     except (asyncssh.Error, OSError, ValueError) as error:
         await output_queue.put(f"Error connecting to {host_name}: {error}")
         return None
+    try:
+        conn.set_keepalive(interval=30, count_max=3)
+    except Exception:
+        pass
+    return conn
 
 
 def _print_mismatch_report(mismatches: list[MismatchRecord]) -> None:
