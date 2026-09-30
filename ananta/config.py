@@ -281,6 +281,12 @@ def _get_hosts_from_toml(
                 f"Warning: Host '{host_name}' in '{toml_file_path}' is missing "
                 "'ip' or 'ip' is not a string. Skipping!"
             )
+            if any(isinstance(value, dict) for value in host_config.values()):
+                print(
+                    f"Hint: Section '[{host_name}]' contains nested tables. "
+                    "If you meant a host name with dots, quote it as "
+                    f'["{host_name}..."] per TOML dotted-key rules.'
+                )
             continue
         ip_address = ip_address.strip()
 

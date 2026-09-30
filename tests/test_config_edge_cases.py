@@ -516,3 +516,21 @@ def test_toml_invalid_timeout_and_port_fall_back(tmp_path, capsys):
     assert "Invalid default timeout" in captured.out
     assert "Invalid default retries" in captured.out
     assert "h2" in captured.out
+
+
+def test_toml_dotted_table_hint_and_quoted_name(tmp_path, capsys):
+    """Dotted sections hint at quoting; quoted dotted names parse as one host."""
+    dotted = tmp_path / "dotted.toml"
+    dotted.write_text('[web.1]\nip = "1.2.3.4"\nusername = "u"\n')
+    hosts, _ = _get_hosts_from_toml(str(dotted), None)
+    captured = capsys.readouterr()
+    assert hosts == []
+    assert "missing 'ip'" in captured.out
+    assert "quote it" in captured.out
+
+    quoted = tmp_path / "quoted.toml"
+    quoted.write_text('["web.1"]\nip = "1.2.3.4"\nusername = "u"\n')
+    hosts, _ = _get_hosts_from_toml(str(quoted), None)
+    assert len(hosts) == 1
+    assert hosts[0][0] == "web.1"
+    assert hosts[0][1] == "1.2.3.4"
