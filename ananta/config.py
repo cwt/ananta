@@ -147,15 +147,16 @@ def _parse_retries_value(value: Any) -> int:
 
 def _deduplicate_hosts(hosts: list[Host]) -> list[Host]:
     """Detect and rename duplicate host names with a numeric suffix."""
+    original_names = {host[0] for host in hosts}
     seen_counts: dict[str, int] = {}
     assigned_names: set[str] = set()
     result: list[Host] = []
     for host in hosts:
         name = host[0]
-        if name in assigned_names or name in seen_counts:
+        if name in assigned_names:
             count = seen_counts.get(name, 0) + 1
             new_name = f"{name}-{count}"
-            while new_name in assigned_names:
+            while new_name in assigned_names or new_name in original_names:
                 count += 1
                 new_name = f"{name}-{count}"
             seen_counts[name] = count
@@ -165,7 +166,7 @@ def _deduplicate_hosts(hosts: list[Host]) -> list[Host]:
             )
             result.append((new_name, *host[1:]))
         else:
-            seen_counts[name] = 0
+            seen_counts.setdefault(name, 0)
             assigned_names.add(name)
             result.append(host)
     return result

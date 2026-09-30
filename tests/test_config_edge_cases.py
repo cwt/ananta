@@ -352,6 +352,25 @@ def test_get_hosts_from_csv_duplicate_names_with_existing_suffix(
     assert "Duplicate host name 'host-a' renamed to 'host-a-2'" in captured.out
 
 
+def test_deduplicate_preserves_legit_suffix_name(capsys):
+    """A legit name colliding with a generated rename must keep its name."""
+    from ananta.config import _deduplicate_hosts
+
+    def make_host(name, ip):
+        return (name, ip, 22, "u", "#", 5.0, 2)
+
+    hosts = [
+        make_host("a", "1.1.1.1"),
+        make_host("a", "2.2.2.2"),
+        make_host("a-1", "3.3.3.3"),
+    ]
+    result = _deduplicate_hosts(hosts)
+    captured = capsys.readouterr()
+    assert [h[0] for h in result] == ["a", "a-2", "a-1"]
+    assert "Duplicate host name 'a' renamed to 'a-2'" in captured.out
+    assert "Duplicate host name 'a-1'" not in captured.out
+
+
 def test_get_hosts_from_csv_indented_comments_and_blank_lines(tmp_path, capsys):
     """Test that CSV rows with leading whitespace before '#' and blank lines are ignored."""
     csv_file = tmp_path / "hosts.csv"
