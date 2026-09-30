@@ -149,20 +149,20 @@ class HostKeyPolicy:
 
     def _find_recorded_blob(self, entry: str, hostname: str) -> str | None:
         """Look up the recorded key for an entry, honoring hashed names."""
+        del hostname  # Hashed matches use entry aliases only, never bare host.
         aliases = _equivalent_entry_names(entry)
-        for alias in aliases:
+        for alias in sorted(aliases):
             blob = self._entries.get(alias)
             if blob is not None:
                 return blob
         for name, first_name in self._hashed_index:
-            if any(_hashed_match(name, a) for a in aliases) or _hashed_match(
-                name, hostname
-            ):
+            if any(_hashed_match(name, a) for a in aliases):
                 blob = self._entries.get(first_name)
                 if blob is not None:
-                    # Cache positive match to avoid repeated linear scans
+                    # Cache positive match to avoid repeated linear scans.
+                    # Cache entry only: caching bare hostname here would leak
+                    # a port-specific key into port-22 lookups and vice versa.
                     self._entries[entry] = blob
-                    self._entries[hostname] = blob
                 return blob
         return None
 

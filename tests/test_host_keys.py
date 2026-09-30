@@ -119,6 +119,30 @@ class TestValidateKey:
         assert not policy.mismatches
         assert policy.added_keys[0][0] == "[web-01]:2222"
 
+    async def test_hashed_different_port_does_not_match_port_22_key(
+        self, tmp_path, key_a, key_b
+    ):
+        import base64
+        import hashlib
+        import hmac as hmac_mod
+
+        salt = b"0123456789abcdef"[:16]
+        digest = hmac_mod.new(salt, b"web-01", hashlib.sha1).digest()
+        hashed = (
+            "|1|"
+            + base64.b64encode(salt).decode()
+            + "|"
+            + base64.b64encode(digest).decode()
+        )
+        blob = _openssh_blob(key_a).split(maxsplit=1)[1]
+        kh = tmp_path / "known_hosts"
+        kh.write_text(f"{hashed} ssh-ed25519 {blob}\n", encoding="utf-8")
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        # Hashed port-22 entry must not match a non-standard port lookup.
+        assert policy.validate_key("[web-01]:2222", "web-01", key_b) is True
+        assert not policy.mismatches
+        assert policy.added_keys[0][0] == "[web-01]:2222"
+
     async def test_explicit_port_22_matches_bare_entry(self, tmp_path, key_a):
         kh = tmp_path / "known_hosts"
         blob = _openssh_blob(key_a).split(maxsplit=1)[1]
