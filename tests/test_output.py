@@ -115,6 +115,11 @@ def test_get_end_marker_with_color():
         ("Step 1\rStep 2\rStep 3", "Step 3"),
         ("Step 1\r", "Step 1"),
         ("\r", ""),
+        # Lone ESC sequences removed
+        ("hi\x1bcthere", "hithere"),
+        ("hi\x1bMthere", "hithere"),
+        ("hi\x1b7there", "hithere"),
+        ("hi\x1b=there", "hithere"),
     ],
 )
 def test_adjust_cursor_no_control(line_input, expected_output_no_control):

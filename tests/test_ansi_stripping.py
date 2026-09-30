@@ -45,6 +45,14 @@ pytestmark = pytest.mark.tui
         ("\x1b^secret\x1b\\", ""),
         # Mixed: SGR kept, control stripped
         ("\x1b[31mred\x1b[0m\x07clean", "\x1b[31mred\x1b[0mclean"),
+        # Lone ESC sequences are stripped while SGR is kept
+        ("hi\x1bcthere", "hithere"),
+        ("hi\x1bMthere", "hithere"),
+        ("hi\x1b7there", "hithere"),
+        ("hi\x1b8there", "hithere"),
+        ("hi\x1b=there", "hithere"),
+        ("hi\x1b>there", "hithere"),
+        ("hi\x1bEthere", "hithere"),
     ],
 )
 def test_strip_ansi_control_sequences(input_str, expected_output):

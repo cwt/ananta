@@ -30,6 +30,7 @@ _OSC_CONTROL_SEQUENCES = re.compile(
     r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)", re.DOTALL
 )
 _NON_SGR_CSI_SEQUENCES = re.compile(r"\x1b\[[0-9;?><=]*[A-Za-ln-z]")
+_SINGLE_ESC_SEQUENCES = re.compile(r"\x1b\x1b*[^[\x1b]|\x1b+$")
 _TERMINAL_QUERY_SEQUENCES = re.compile(
     r"\x1b\[[?0-9;]*n|"  # DSR / CPR (e.g. \x1b[6n, \x1b[5n)
     r"\x1b\[[>?0-9;]*c|"  # DA (Device Attributes e.g. \x1b[c, \x1b[>c)
@@ -77,6 +78,8 @@ def adjust_cursor_with_prompt(
                 line = ""
         if "\x1b" in line:
             line = _NON_SGR_CSI_SEQUENCES.sub("", line)
+        if "\x1b" in line:
+            line = _SINGLE_ESC_SEQUENCES.sub("", line)
         return line.rstrip()
 
     if "\r" in line:
@@ -86,6 +89,8 @@ def adjust_cursor_with_prompt(
         return line.rstrip()
 
     line = _TERMINAL_QUERY_SEQUENCES.sub("", line)
+    if "\x1b" in line:
+        line = _SINGLE_ESC_SEQUENCES.sub("", line)
     # Adjust \x1b[nG to account for prompt length
     prompt_offset = max_name_length + PROMPT_EXTRA_WIDTH
 

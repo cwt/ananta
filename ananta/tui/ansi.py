@@ -92,6 +92,7 @@ _OSC_CONTROL_SEQUENCES = re.compile(
     r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)", re.DOTALL
 )
 _NON_SGR_CSI_SEQUENCES = re.compile(r"\x1b\[[0-9;?><=]*[A-Za-ln-z]")
+_SINGLE_ESC_SEQUENCES = re.compile(r"\x1b\x1b*[^[\x1b]|\x1b+$")
 
 
 def _strip_ansi_control_sequences(text: str) -> str:
@@ -105,6 +106,10 @@ def _strip_ansi_control_sequences(text: str) -> str:
     text = _ANSI_CONTROL_SEQUENCES.sub("", text)
     if "\x1b" in text:
         text = _NON_SGR_CSI_SEQUENCES.sub("", text)
+    if "\x1b" in text:
+        # Strip lone ESC sequences such as ESC c (reset), ESC M,
+        # ESC 7/8 and ESC =/> while preserving CSI (ESC [) for SGR.
+        text = _SINGLE_ESC_SEQUENCES.sub("", text)
 
     if "\r" in text:
         line_ending = ""
