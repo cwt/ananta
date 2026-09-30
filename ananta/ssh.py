@@ -60,6 +60,12 @@ async def retry_connect(
                 ),
                 timeout=timeout,
             )
+        except asyncio.TimeoutError as error:
+            # Check timeout first: on Python 3.11+ TimeoutError is an
+            # OSError subclass and would otherwise be caught below.
+            last_error = error
+            if attempt < max_retries:
+                await asyncio.sleep(1)
         except (asyncssh.Error, OSError) as error:
             last_error = error
             if any(m.entry == entry for m in policy.mismatches):
@@ -79,10 +85,6 @@ async def retry_connect(
                 _sleep = 0  # no need to sleep as this is an error on our side
             if attempt < max_retries:
                 await asyncio.sleep(_sleep)
-        except asyncio.TimeoutError as error:
-            last_error = error
-            if attempt < max_retries:
-                await asyncio.sleep(1)
     if isinstance(last_error, asyncio.TimeoutError):
         raise ConnectionError(
             f"Connection to {ip_address} timed out after {timeout}s"
