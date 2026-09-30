@@ -120,6 +120,42 @@ async def test_run_command_on_host_cancelled(mock_tui):
 
 
 @pytest.mark.asyncio
+async def test_concurrent_commands_on_same_host_serialize(mock_tui):
+    """Concurrent commands for one host must not interleave ANSI state."""
+    mock_tui.asyncio_loop = asyncio.get_running_loop()
+    host_name = "host-1"
+    conn = mock_tui.connections[host_name]
+    order: list[str] = []
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def fake_inner(host, connection, command):
+        order.append(f"start-{command}")
+        if command == "first":
+            entered.set()
+            await release.wait()
+        await asyncio.sleep(0)
+        order.append(f"end-{command}")
+
+    with patch.object(
+        mock_tui, "_run_command_on_host_locked", side_effect=fake_inner
+    ):
+        first = asyncio.create_task(
+            mock_tui.run_command_on_host(host_name, conn, "first")
+        )
+        await entered.wait()
+        second = asyncio.create_task(
+            mock_tui.run_command_on_host(host_name, conn, "second")
+        )
+        await asyncio.sleep(0)
+        # Second command waits for the first per-host lock.
+        assert order == ["start-first"]
+        release.set()
+        await asyncio.gather(first, second)
+    assert order == ["start-first", "end-first", "start-second", "end-second"]
+
+
+@pytest.mark.asyncio
 async def test_perform_shutdown_cancels_tasks(mock_tui):
     """Test that perform_shutdown cancels pending async tasks."""
     mock_tui.asyncio_loop = asyncio.get_running_loop()

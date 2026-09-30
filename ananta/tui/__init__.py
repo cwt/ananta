@@ -217,6 +217,7 @@ class AnantaUrwidTUI:
         # Mandatory host-key verification shared across all connections.
         self.host_key_policy = HostKeyPolicy()
         self._ansi_states: dict[str, _AnsiState] = {}
+        self._host_locks: dict[str, asyncio.Lock] = {}
         self._host_attr_names: dict[str, str] = {}
         self._taken_attr_names: set[str] = set()
         self._host_prompts: dict[str, list[tuple[str, str]]] = {}
@@ -570,6 +571,14 @@ class AnantaUrwidTUI:
         elif self.allow_empty_line and line_data.strip() == "":
             self.add_output(prompt + [""])
 
+    def _get_host_lock(self, host_name: str) -> asyncio.Lock:
+        """Return the per-host lock serializing commands for one host."""
+        lock = self._host_locks.get(host_name)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._host_locks[host_name] = lock
+        return lock
+
     async def run_command_on_host(
         self,
         host_name: str,
@@ -577,6 +586,16 @@ class AnantaUrwidTUI:
         command: str,
     ) -> None:
         """Run a command on a specific host and stream the output."""
+        async with self._get_host_lock(host_name):
+            await self._run_command_on_host_locked(host_name, conn, command)
+
+    async def _run_command_on_host_locked(
+        self,
+        host_name: str,
+        conn: asyncssh.SSHClientConnection,
+        command: str,
+    ) -> None:
+        """Inner command runner; caller holds the per-host lock."""
         if self.is_exiting:  # If exiting, do not run commands
             return
 
