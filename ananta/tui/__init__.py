@@ -367,16 +367,34 @@ class AnantaUrwidTUI:
         unique_palette.reverse()
         return unique_palette
 
+    @staticmethod
+    def _exit_message_text(message_parts: list[Any] | str) -> str:
+        """Return filterable text excluding host prompts to avoid smuggling."""
+        if isinstance(message_parts, str):
+            return message_parts.lower()
+        texts: list[str] = []
+        for part in message_parts:
+            if isinstance(part, tuple) and len(part) == 2:
+                attr_name, text = part
+                if isinstance(attr_name, str) and attr_name.startswith("host_"):
+                    continue
+                texts.append(str(text))
+            else:
+                texts.append(str(part))
+        return " ".join(texts).lower()
+
     def add_output(
         self, message_parts: list[Any] | str, scroll: bool = True
     ) -> None:
         """Add output to the display."""
         if self.is_exiting and not any(
-            s in str(message_parts).lower()
+            s in self._exit_message_text(message_parts)
             for s in [
                 "exiting",
+                "closing",
                 "closed",
                 "cleanup",
+                "cleaning up",
                 "shutdown",
                 "processed",
                 "failed",

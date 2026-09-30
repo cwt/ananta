@@ -182,6 +182,23 @@ def test_add_output_when_exiting_with_keywords(mock_tui):
     mock_tui.output_walker.append.assert_called_once()
 
 
+def test_shutdown_progress_shown_when_exiting(mock_tui):
+    """Shutdown progress lines must not be swallowed while exiting."""
+    mock_tui.is_exiting = True
+    prompt = mock_tui.format_host_prompt("host-1", mock_tui.max_name_length)
+    mock_tui.add_output(prompt + [("status_neutral", "Closing...")])
+    mock_tui.add_output([("status_neutral", "Cleaning up 2 tasks...")])
+    assert mock_tui.output_walker.append.call_count == 2
+
+
+def test_hostname_keyword_does_not_smuggle_output(mock_tui):
+    """A hostname containing a keyword must not bypass the exit filter."""
+    mock_tui.is_exiting = True
+    prompt = mock_tui.format_host_prompt("error-host", mock_tui.max_name_length)
+    mock_tui.add_output(prompt + [("status_neutral", "hello")])
+    mock_tui.output_walker.append.assert_not_called()
+
+
 @patch("ananta.tui.urwid.AsyncioEventLoop")
 @patch("ananta.tui.AnantaMainLoop")
 def test_run_method_exceptions(mock_main_loop, mock_event_loop, mock_tui):
