@@ -27,21 +27,28 @@ from .ssh import (  # Used by non-TUI mode
     execute,
 )
 
-uvloop: ModuleType | None = None
-try:
-    import warnings
 
-    with warnings.catch_warnings():
-        warnings.simplefilter(
-            "ignore",
-            category=DeprecationWarning,
-        )
-        if sys.platform == "win32":
-            import winloop as uvloop
-        else:
-            import uvloop
-except ImportError:
-    pass  # uvloop or winloop is an optional for speedup, not a requirement
+def _load_loop_module() -> ModuleType | None:
+    """Load the optional event-loop speedup module, if available."""
+    try:
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter(
+                "ignore",
+                category=DeprecationWarning,
+            )
+            if sys.platform == "win32":
+                import winloop as loop_module
+            else:
+                import uvloop as loop_module
+            return loop_module
+    except ImportError:
+        # uvloop or winloop is optional for speedup, not a requirement.
+        return None
+
+
+uvloop = _load_loop_module()
 
 
 def _create_policy() -> HostKeyPolicy:
