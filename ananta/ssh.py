@@ -37,7 +37,7 @@ async def retry_connect(
             "aes128-ctr",
             "aes256-ctr",
         ],
-        "mac_algs": ["hmac-sha2-256", "hmac-sha1"],
+        "mac_algs": ["hmac-sha2-256", "hmac-sha2-512"],
     }  # try with the lowest latency algorithm first
     entry = _host_entry_name(ip_address, ssh_port)
     for attempt in range(max_retries + 1):

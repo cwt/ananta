@@ -437,3 +437,37 @@ async def test_execute_skips_close_if_already_closed(mock_establish_conn):
 
         # Verify connection close was NOT called (already closed)
         mock_conn.close.assert_not_called()
+
+
+async def test_retry_connect_uses_strong_macs_only(tmp_path):
+    """Connection attempts must not offer weak message authentication codes."""
+    from unittest.mock import AsyncMock, patch
+
+    from ananta.host_keys import HostKeyPolicy
+    from ananta.ssh import retry_connect
+
+    kh = tmp_path / "known_hosts"
+    kh.write_text("", encoding="utf-8")
+    policy = HostKeyPolicy(known_hosts_path=kh)
+    seen: dict[str, object] = {}
+
+    async def fake_connect(**kwargs):
+        seen.update(kwargs)
+        raise asyncssh.Error(code=1, reason="fail")
+
+    with (
+        patch("ananta.ssh.asyncssh.connect", side_effect=fake_connect),
+        patch("ananta.ssh.asyncio.sleep", new_callable=AsyncMock),
+        pytest.raises(ConnectionError),
+    ):
+        await retry_connect(
+            ip_address="10.0.0.9",
+            ssh_port=22,
+            username="user",
+            client_keys=["/key"],
+            timeout=1,
+            max_retries=0,
+            policy=policy,
+        )
+    assert "hmac-sha1" not in seen.get("mac_algs", [])
+    assert "hmac-sha2-256" in seen.get("mac_algs", [])
