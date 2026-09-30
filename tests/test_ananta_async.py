@@ -476,8 +476,5 @@ async def test_open_connection_cancelled():
                 ("h1", "127.0.0.1", 22, "u", "#", 5.0, 2),
                 None,
                 q,
-                False,
-                80,
-                2,
                 MagicMock(),
             )

@@ -50,9 +50,6 @@ async def _open_connection(
     host_details: tuple,
     default_key: str | None,
     output_queue: asyncio.Queue[str | None],
-    color: bool,
-    local_display_width: int,
-    max_name_length: int,
     policy: HostKeyPolicy,
 ) -> asyncssh.SSHClientConnection | None:
     """Pre-flight worker: connect to one host and verify its host key.
@@ -177,9 +174,6 @@ async def main(  # This is the non-TUI main function
                 host_details,
                 default_key,
                 output_queues[host_details[0]],
-                color,
-                local_display_width,
-                max_name_length,
                 policy,
             )
             for host_details in hosts_to_execute
@@ -219,9 +213,6 @@ async def main(  # This is the non-TUI main function
                         host_details,
                         default_key,
                         output_queues[host_details[0]],
-                        color,
-                        local_display_width,
-                        max_name_length,
                         policy,
                     )
                     for host_details in retry_hosts
