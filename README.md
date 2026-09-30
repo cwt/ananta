@@ -105,6 +105,10 @@ tags = ["ubuntu", "db"]
   - For example, if `default.tags = ["common"]` and `host-3.tags = ["arch", "web"]`, `host-3` will have tags `["common", "arch", "web"]`.
   - Use the `-t` option to filter hosts by tags (e.g., `-t common,web` matches hosts with any of these tags).
 - **Note**: TOML parsing requires `tomli` on Python 3.10 (included in Ananta's dependencies) or `tomllib` on Python 3.11 and above.
+- **Dotted names**: Bare dots split TOML tables, so a host literally named
+  with dots (e.g. `web.1` or `web.example.com`) must be quoted as
+  `["web.1"]`. Unquoted `[web.1]` parses as nested tables and warns about a
+  missing `ip` with a quoting hint.
 - **CSV Limitations**: CSV files do not support default values or per-host `timeout` and `retries`; these are fixed to 5.0 seconds and 2 retries respectively.
 
 #### CSV Host File
@@ -194,6 +198,8 @@ $ ananta --tui -t web,db hosts.toml "df -h"
 - **Output Display**: Outputs from each host are displayed with color-coded host names for clarity.
 - **Navigation**: Use the arrow keys or mouse to scroll through the output.
 - **Exit**: Type `exit` or press `Ctrl+C` or `Ctrl+D` to quit the TUI.
+- **Override**: Type `override` after a host-key mismatch to accept the new
+  keys and reconnect.
 - **Options**: Supports `-t` (host tags), `-k` (default key), `-s` (separate output), and `-e` (allow empty lines) as in non-TUI mode. Note that `-n` (no-color), `-w` (terminal width), and `-c` (cursor control) are ignored in TUI mode, as the TUI handles these internally.
 
 **Notes:**
@@ -201,11 +207,11 @@ $ ananta --tui -t web,db hosts.toml "df -h"
 - Requires the `urwid` library, automatically installed with `pip install ananta`.
 - The TUI mode streams output in real-time for interleaved display or waits for complete output with `-s` (separate output).
 - Cursor control codes are stripped to ensure proper rendering in the TUI.
-- Host keys are verified on connect just like non-TUI mode. A host whose key
-  changed is refused and flagged prominently in red — commands skip it. To
-  accept a verified key change, either remove/replace its entry in
-  `~/.ssh/known_hosts` yourself, or use non-TUI mode with
-  `--override-mismatched-keys`.
+- Host keys are verified on connect just like non-TUI mode. A key change
+  aborts the batch with a loud report — no commands run until resolved.
+  Type `override` to accept the new keys and reconnect, or `exit` to quit.
+  Alternatively, remove/replace the entry in `~/.ssh/known_hosts` yourself,
+  or use non-TUI mode with `--override-mismatched-keys`.
 
 ### Options
 
@@ -272,7 +278,8 @@ Verify out-of-band (console access, colleague, change ticket), then:
 Nothing was executed on any host — including the ones that connected fine —
 so you never end up with a partially-applied change across your fleet.
 The process exits with code **3**, which lets scripts distinguish a
-security abort from ordinary failures.
+security abort from ordinary failures. If no host connects at all, the
+process exits with code **2**.
 
 ### Demo
 

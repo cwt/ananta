@@ -49,5 +49,6 @@ Scope notes for security reviewers:
   currently ignored rather than trusted.
 - Host keys are verified during the pre-flight connect phase using the same
   connection that later executes commands, avoiding a check-then-use gap.
-- The TUI applies the same policy; mismatched hosts are refused and flagged,
-  but the CONFIRM override flow is only available in non-TUI mode.
+- The TUI applies the same policy and aborts the batch on mismatch; type
+  `override` in the TUI to accept the new keys and reconnect, matching the
+  non-TUI `--override-mismatched-keys` + `CONFIRM` flow.
