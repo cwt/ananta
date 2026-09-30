@@ -1,4 +1,5 @@
 import csv
+import math
 import os
 import sys
 from typing import Any
@@ -50,23 +51,98 @@ def _load_toml_data(toml_file_path: str) -> dict[str, Any]:
 
 def _validate_port(port: int) -> int:
     """Validate that port is in valid range 1-65535."""
+    if isinstance(port, bool):
+        raise ValueError(f"Port {port!r} must be an integer, not bool")
+    if not isinstance(port, int):
+        raise ValueError(f"Port {port!r} must be an integer")
     if not (1 <= port <= 65535):
         raise ValueError(f"Port {port} is not in valid range 1-65535")
     return port
 
 
 def _validate_timeout(timeout: float) -> float:
-    """Validate that timeout is positive."""
-    if timeout <= 0:
+    """Validate that timeout is a finite positive number."""
+    if isinstance(timeout, bool):
+        raise ValueError(f"Timeout {timeout!r} must be a number, not bool")
+    if not isinstance(timeout, (int, float)):
+        raise ValueError(f"Timeout {timeout!r} must be a number")
+    value = float(timeout)
+    if math.isnan(value) or math.isinf(value):
+        raise ValueError(f"Timeout {timeout!r} must be finite")
+    if value <= 0:
         raise ValueError(f"Timeout {timeout} must be positive")
-    return timeout
+    return value
 
 
 def _validate_retries(retries: int) -> int:
     """Validate that retries is non-negative."""
+    if isinstance(retries, bool):
+        raise ValueError(f"Retries {retries!r} must be an integer, not bool")
+    if not isinstance(retries, int):
+        raise ValueError(f"Retries {retries!r} must be an integer")
     if retries < 0:
         raise ValueError(f"Retries {retries} must be non-negative")
     return retries
+
+
+def _parse_port_value(value: Any) -> int:
+    """Coerce a config port value to int without silent truncation."""
+    if isinstance(value, bool):
+        raise ValueError(f"Port {value!r} must be an integer, not bool")
+    if isinstance(value, int):
+        return _validate_port(value)
+    if isinstance(value, float):
+        if not value.is_integer():
+            raise ValueError(f"Port {value!r} must be an integer")
+        return _validate_port(int(value))
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            return _validate_port(int(text))
+        except ValueError as error:
+            # int("22.9") already raises; re-raise with port context.
+            if "Port" in str(error):
+                raise
+            raise ValueError(f"Port {value!r} must be an integer") from error
+    raise ValueError(f"Port {value!r} must be an integer")
+
+
+def _parse_timeout_value(value: Any) -> float:
+    """Coerce a config timeout value to a finite positive float."""
+    if isinstance(value, bool):
+        raise ValueError(f"Timeout {value!r} must be a number, not bool")
+    if isinstance(value, (int, float)):
+        return _validate_timeout(value)
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            return _validate_timeout(float(text))
+        except ValueError as error:
+            if "Timeout" in str(error):
+                raise
+            raise ValueError(f"Timeout {value!r} must be a number") from error
+    raise ValueError(f"Timeout {value!r} must be a number")
+
+
+def _parse_retries_value(value: Any) -> int:
+    """Coerce a config retries value to int without silent truncation."""
+    if isinstance(value, bool):
+        raise ValueError(f"Retries {value!r} must be an integer, not bool")
+    if isinstance(value, int):
+        return _validate_retries(value)
+    if isinstance(value, float):
+        if not value.is_integer():
+            raise ValueError(f"Retries {value!r} must be an integer")
+        return _validate_retries(int(value))
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            return _validate_retries(int(text))
+        except ValueError as error:
+            if "Retries" in str(error):
+                raise
+            raise ValueError(f"Retries {value!r} must be an integer") from error
+    raise ValueError(f"Retries {value!r} must be an integer")
 
 
 def _deduplicate_hosts(hosts: list[Host]) -> list[Host]:
@@ -146,7 +222,7 @@ def _get_hosts_from_toml(
 
     # Validate and set default values
     try:
-        default_port = _validate_port(int(defaults.get("port", 22)))
+        default_port = _parse_port_value(defaults.get("port", 22))
     except (ValueError, TypeError):
         print(f"Warning: Invalid default port in '{toml_file_path}', using 22")
         default_port = 22
@@ -168,7 +244,7 @@ def _get_hosts_from_toml(
         default_tags = [tag.strip() for tag in default_tags if tag.strip()]
 
     try:
-        default_timeout = _validate_timeout(float(defaults.get("timeout", 5.0)))
+        default_timeout = _parse_timeout_value(defaults.get("timeout", 5.0))
     except (ValueError, TypeError):
         print(
             f"Warning: Invalid default timeout in '{toml_file_path}', using 5.0"
@@ -176,7 +252,7 @@ def _get_hosts_from_toml(
         default_timeout = 5.0
 
     try:
-        default_retries = _validate_retries(int(defaults.get("retries", 2)))
+        default_retries = _parse_retries_value(defaults.get("retries", 2))
     except (ValueError, TypeError):
         print(
             f"Warning: Invalid default retries in '{toml_file_path}', using 2"
@@ -209,8 +285,7 @@ def _get_hosts_from_toml(
 
         try:
             port_str = host_config.get("port", default_port)
-            ssh_port = int(port_str)
-            ssh_port = _validate_port(ssh_port)
+            ssh_port = _parse_port_value(port_str)
             username = host_config.get("username", default_username)
             if (
                 not username
@@ -230,8 +305,8 @@ def _get_hosts_from_toml(
                 else UNSPECIFIED_KEY_PATH
             )
             try:
-                timeout = _validate_timeout(
-                    float(host_config.get("timeout", default_timeout))
+                timeout = _parse_timeout_value(
+                    host_config.get("timeout", default_timeout)
                 )
             except (ValueError, TypeError):
                 print(
@@ -239,8 +314,8 @@ def _get_hosts_from_toml(
                 )
                 timeout = default_timeout
             try:
-                retries = _validate_retries(
-                    int(host_config.get("retries", default_retries))
+                retries = _parse_retries_value(
+                    host_config.get("retries", default_retries)
                 )
             except (ValueError, TypeError):
                 print(
@@ -340,7 +415,7 @@ def _get_hosts_from_csv(
                     )
                     continue
                 try:
-                    ssh_port = _validate_port(int(str_port))
+                    ssh_port = _parse_port_value(str_port)
                     key_path = (
                         row[4].strip()
                         if len(row) > 4 and row[4].strip()

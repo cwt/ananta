@@ -161,9 +161,9 @@ def test_get_hosts_skips_malformed(tmp_path, capsys):
     # Check if the error message was printed (optional, requires capsys fixture)
     captured = capsys.readouterr()
     assert (
-        f"Hosts file (CSV): '{str(p)}' parse error at row 7 (port must be an integer). Skipping!"
-        in captured.out
+        f"Hosts file (CSV): '{str(p)}' parse error at row 7" in captured.out
     )  # Row numbers start from 1
+    assert "must be an integer" in captured.out
 
 
 # === TOML Tests ===

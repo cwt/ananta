@@ -219,7 +219,7 @@ def test_get_hosts_from_csv_invalid_port(tmp_path, capsys):
     assert hosts == []
     assert max_len == 0
     assert "parse error at row 1" in captured.out
-    assert "port must be an integer" in captured.out
+    assert "must be an integer" in captured.out
 
 
 def test_get_hosts_from_csv_out_of_range_port(tmp_path, capsys):
@@ -426,3 +426,74 @@ username = "   "
     assert hosts == []
     assert "missing 'ip' or 'ip' is not a string" in captured.out
     assert "missing 'username' or 'username' is not a string" in captured.out
+
+
+def test_strict_validators_reject_bad_values():
+    """Bool, NaN, inf and truncated floats must be rejected."""
+    import math
+
+    from ananta.config import (
+        _parse_port_value,
+        _parse_retries_value,
+        _parse_timeout_value,
+        _validate_port,
+        _validate_retries,
+        _validate_timeout,
+    )
+
+    with pytest.raises(ValueError):
+        _validate_timeout(float("nan"))
+    with pytest.raises(ValueError):
+        _validate_timeout(float("inf"))
+    with pytest.raises(ValueError):
+        _validate_timeout(True)
+    with pytest.raises(ValueError):
+        _validate_port(True)
+    with pytest.raises(ValueError):
+        _validate_retries(True)
+    with pytest.raises(ValueError):
+        _parse_port_value(True)
+    with pytest.raises(ValueError):
+        _parse_port_value(22.9)
+    with pytest.raises(ValueError):
+        _parse_retries_value(True)
+    with pytest.raises(ValueError):
+        _parse_retries_value(2.9)
+    with pytest.raises(ValueError):
+        _parse_timeout_value(float("nan"))
+    with pytest.raises(ValueError):
+        _parse_timeout_value(float("inf"))
+    assert math.isclose(_parse_timeout_value(5), 5.0)
+    assert _parse_port_value(22) == 22
+    assert _parse_port_value(22.0) == 22
+    assert _parse_retries_value(2) == 2
+
+
+def test_toml_invalid_timeout_and_port_fall_back(tmp_path, capsys):
+    """NaN timeout, bool port and float port fall back to defaults."""
+    toml_file = tmp_path / "bad_values.toml"
+    toml_file.write_text(
+        "[default]\n"
+        'username = "u"\n'
+        "port = true\n"
+        "timeout = nan\n"
+        "retries = true\n"
+        "\n"
+        "[h1]\n"
+        'ip = "1.1.1.1"\n'
+        "\n"
+        "[h2]\n"
+        'ip = "2.2.2.2"\n'
+        "port = 22.9\n"
+    )
+    hosts, _ = _get_hosts_from_toml(str(toml_file), None)
+    captured = capsys.readouterr()
+    assert len(hosts) == 1
+    assert hosts[0][0] == "h1"
+    assert hosts[0][2] == 22
+    assert hosts[0][5] == 5.0
+    assert hosts[0][6] == 2
+    assert "Invalid default port" in captured.out
+    assert "Invalid default timeout" in captured.out
+    assert "Invalid default retries" in captured.out
+    assert "h2" in captured.out
