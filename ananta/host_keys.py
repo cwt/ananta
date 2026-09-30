@@ -112,6 +112,7 @@ class HostKeyPolicy:
         self._added: list[tuple[str, str]] = []  # (entry, fingerprint)
         self._mismatches: list[MismatchRecord] = []
         self._overridden: set[str] = set()
+        self._load_failed = False
 
         self._load_known_hosts()
 
@@ -125,7 +126,8 @@ class HostKeyPolicy:
         except UnicodeError:
             return  # Non-UTF8 file: ignore contents instead of crashing.
         except OSError:
-            return  # Unreadable file: treated like an empty one.
+            self._load_failed = True
+            return  # Unreadable file: fail closed, do not trust new keys.
 
         for raw in raw_lines:
             stripped = raw.strip()
@@ -187,6 +189,18 @@ class HostKeyPolicy:
             if recorded == presented:
                 return True
             if recorded is None:
+                if self._load_failed:
+                    # Fail closed: unreadable file must not trust new keys.
+                    if not any(m.entry == entry for m in self._mismatches):
+                        self._mismatches.append(
+                            MismatchRecord(
+                                entry=entry,
+                                old_fingerprint="(unreadable)",
+                                new_fingerprint=key.get_fingerprint(),
+                                new_blob=presented,
+                            )
+                        )
+                    return False
                 # Unknown host: TOFU. Persist and report later.
                 self._trust_new_key(entry, key, presented)
                 return True
@@ -214,18 +228,22 @@ class HostKeyPolicy:
     ) -> None:
         self._entries.setdefault(entry, blob)
         new_line = f"{entry} {blob}"
-        self._append_to_file(new_line)
+        persisted = self._append_to_file(new_line)
         self._file_lines.append(new_line)
         self._line_index.append([entry])
-        self._added.append((entry, key.get_fingerprint()))
+        if persisted:
+            self._added.append((entry, key.get_fingerprint()))
 
-    def _append_to_file(self, line: str) -> None:
+    def _append_to_file(self, line: str) -> bool:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.path, "a", encoding="utf-8") as fh:
                 fh.write(line + "\n")
         except OSError:
-            pass  # Trust decision stands for this session even if persistence fails.
+            # Trust decision stands for this session even if persistence
+            # fails, but do not report the key as added.
+            return False
+        return True
 
     # --- override ----------------------------------------------------------
 

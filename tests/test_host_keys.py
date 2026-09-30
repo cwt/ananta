@@ -625,6 +625,35 @@ async def test_non_utf8_known_hosts_does_not_crash(tmp_path, key_a):
     assert policy.validate_key("web-01", "web-01", key_a) is True
 
 
+async def test_unreadable_known_hosts_fails_closed(tmp_path, key_a):
+    """An unreadable known_hosts file must not trust new keys."""
+    from unittest.mock import patch
+
+    kh = tmp_path / "known_hosts"
+    kh.write_text("seed ssh-ed25519 AAAA\n", encoding="utf-8")
+    with patch(
+        "pathlib.Path.read_text", side_effect=OSError(13, "Permission denied")
+    ):
+        policy = HostKeyPolicy(known_hosts_path=kh)
+        assert policy.validate_key("newhost", "newhost", key_a) is False
+        assert len(policy.mismatches) == 1
+        assert not policy.added_keys
+
+
+async def test_write_failure_does_not_report_added(tmp_path, key_a):
+    """A TOFU key that cannot be persisted must not be reported as added."""
+    from unittest.mock import patch
+
+    kh = tmp_path / "known_hosts"
+    kh.write_text("", encoding="utf-8")
+    policy = HostKeyPolicy(known_hosts_path=kh)
+    with patch("builtins.open", side_effect=OSError(13, "Denied")):
+        assert policy.validate_key("h2", "h2", key_a) is True
+        assert not policy.added_keys
+    # Session trust still holds so the same key matches afterwards.
+    assert policy.validate_key("h2", "h2", key_a) is True
+
+
 async def test_parse_hashed_name_and_caching():
     """Verify that _parse_hashed_name parses valid hashes and handles malformed input."""
     import base64
