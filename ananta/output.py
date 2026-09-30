@@ -2,20 +2,26 @@ import asyncio
 import re
 import tempfile
 from itertools import cycle
-from random import shuffle
 
 from . import BLUE, CYAN, GREEN, MAGENTA, RED, RESET, YELLOW
 
 
-def _make_color_cycle(colors: list[str]) -> cycle:
-    """Shuffle a list of color strings and return a cycle iterator."""
+def make_color_cycle(colors: list[str], seed: int | None = 42) -> cycle:
+    """Return a cycle iterator over colors in deterministic shuffled order."""
+    import random
+
     shuffled = list(colors)
-    shuffle(shuffled)
+    random.Random(seed).shuffle(shuffled)
     return cycle(shuffled)
 
 
+def _make_color_cycle(colors: list[str]) -> cycle:
+    """Deprecated alias kept for backward compatibility."""
+    return make_color_cycle(colors)
+
+
 COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
-COLORS_CYCLE = _make_color_cycle(COLORS)
+COLORS_CYCLE = make_color_cycle(COLORS)
 HOST_COLOR: dict[str, str] = {}  # Dictionary to store host colors
 
 # Patterns to match control and query ANSI codes

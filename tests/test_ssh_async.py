@@ -15,6 +15,7 @@ async def test_execute_command_success_bytes():
     mock_conn = AsyncMock()
     mock_result = MagicMock()
     mock_result.stdout = b"some byte output"
+    mock_result.stderr = ""
     mock_conn.run.return_value = mock_result
 
     output = await execute_command(mock_conn, "a command", 80, True)
@@ -30,6 +31,7 @@ async def test_execute_command_success_str():
     mock_conn = AsyncMock()
     mock_result = MagicMock()
     mock_result.stdout = "some string output"
+    mock_result.stderr = ""
     mock_conn.run.return_value = mock_result
 
     output = await execute_command(mock_conn, "a command", 80, False)
@@ -45,6 +47,7 @@ async def test_execute_command_unsupported_type():
     mock_conn = AsyncMock()
     mock_result = MagicMock()
     mock_result.stdout = 12345  # Unsupported type
+    mock_result.stderr = ""
     mock_conn.run.return_value = mock_result
 
     output = await execute_command(mock_conn, "a command", 80, True)
@@ -60,6 +63,7 @@ async def test_execute_command_unicode_decode_error():
     mock_conn = AsyncMock()
     mock_result = MagicMock()
     mock_result.stdout = b"\x80abc"  # Invalid UTF-8 byte
+    mock_result.stderr = ""
     mock_conn.run.return_value = mock_result
 
     output = await execute_command(mock_conn, "a command", 80, True)

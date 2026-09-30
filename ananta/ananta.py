@@ -16,12 +16,15 @@ import asyncssh
 from . import __version__
 from .config import get_hosts
 from .host_keys import HostKeyPolicy, MismatchRecord, _host_entry_name
-from .output import calculate_remote_width, print_output  # Used by non-TUI mode
+from .output import (  # Used by non-TUI mode
+    calculate_remote_width,
+    get_end_marker,
+    print_output,
+)
 from .ssh import (  # Used by non-TUI mode
     _close_ssh_connection,
     establish_ssh_connection,
     execute,
-    get_end_marker,
 )
 
 uvloop: ModuleType | None = None

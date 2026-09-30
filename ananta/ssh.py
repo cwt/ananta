@@ -171,9 +171,7 @@ async def execute_command(
         elif isinstance(result.stdout, str):
             if result.stdout:
                 parts.append(result.stdout)
-        elif result.stdout is not None and not hasattr(
-            result.stdout, "_mock_return_value"
-        ):
+        elif result.stdout is not None:
             parts.append(
                 f"Host returns unprintable output, got {type(result.stdout).__name__}"
             )
@@ -185,9 +183,7 @@ async def execute_command(
         elif isinstance(result.stderr, str):
             if result.stderr:
                 parts.append(result.stderr)
-        elif result.stderr is not None and not hasattr(
-            result.stderr, "_mock_return_value"
-        ):
+        elif result.stderr is not None:
             parts.append(
                 f"Host returns unprintable stderr, got {type(result.stderr).__name__}"
             )

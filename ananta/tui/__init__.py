@@ -14,7 +14,7 @@ import urwid
 
 from ..config import get_hosts
 from ..host_keys import HostKeyChangedError, HostKeyPolicy
-from ..output import _make_color_cycle, calculate_remote_width
+from ..output import calculate_remote_width, make_color_cycle
 from ..ssh import (
     _close_ssh_connection,
     establish_ssh_connection,
@@ -129,6 +129,14 @@ class ListBoxWithScrollBar(urwid.WidgetWrap):
 
 # --- Setup colors for hosts ---
 # Colors are now handled within the _populate_host_fg_colors method
+
+
+def _retrieve_task_exception(task: asyncio.Task[Any]) -> None:
+    """Retrieve a task exception so it is never reported as unretrieved."""
+    try:
+        task.exception()
+    except asyncio.CancelledError:
+        pass
 
 
 class AnantaMainLoop(urwid.MainLoop):
@@ -341,7 +349,7 @@ class AnantaUrwidTUI:
                 "light cyan",
             ]
 
-        color_cycle = _make_color_cycle(fg_colors)
+        color_cycle = make_color_cycle(fg_colors)
         for host_name, *_ in self.hosts:
             attr_name = self._get_host_attr_name(host_name)
             if attr_name not in self.host_fg_colors:
@@ -738,6 +746,7 @@ class AnantaUrwidTUI:
             self.shutdown_task = self.asyncio_loop.create_task(
                 self.perform_shutdown()
             )
+            self.shutdown_task.add_done_callback(_retrieve_task_exception)
         else:
             self._direct_exit_loop()
 

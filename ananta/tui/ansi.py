@@ -81,18 +81,12 @@ class _AnsiState:
         return _build_attr_spec(self.fg, self.bg, styles_tuple)
 
 
-_ANSI_CONTROL_SEQUENCES = re.compile(
-    r"(?:[\x00-\x08\x0B\x0C\x0E-\x1A\x1C-\x1F]"
-    r"|[\x80-\x9F]"
-    r"|\x1bP[^\x1b]*(?:\x1b\\|$)"
-    r"|\x1b_[^\x1b]*(?:\x1b\\|$)"
-    r"|\x1b\^[^\x1b]*(?:\x1b\\|$))"
+from ..output import (
+    _ANSI_CONTROL_SEQUENCES,
+    _NON_SGR_CSI_SEQUENCES,
+    _OSC_CONTROL_SEQUENCES,
+    _SINGLE_ESC_SEQUENCES,
 )
-_OSC_CONTROL_SEQUENCES = re.compile(
-    r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)", re.DOTALL
-)
-_NON_SGR_CSI_SEQUENCES = re.compile(r"\x1b\[[0-9;?><=]*[A-Za-ln-z]")
-_SINGLE_ESC_SEQUENCES = re.compile(r"\x1b\x1b*[^[\x1b]|\x1b+$")
 
 
 def _strip_ansi_control_sequences(text: str) -> str:

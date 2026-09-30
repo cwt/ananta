@@ -298,11 +298,9 @@ class HostKeyPolicy:
                 if not remaining:
                     continue  # Line belonged solely to this entry: drop it.
                 fields = line.split(maxsplit=1)
-                line = (
-                    f"{','.join(remaining)} {fields[1]}"
-                    if len(fields) > 1
-                    else line
-                )
+                # Matching lines always carry a key blob (loader only
+                # indexes lines with at least three fields).
+                line = f"{','.join(remaining)} {fields[1]}"
                 names = remaining
             kept_lines.append(line)
             kept_index.append(names)
