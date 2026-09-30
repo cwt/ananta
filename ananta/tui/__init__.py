@@ -292,8 +292,6 @@ class AnantaUrwidTUI:
     def _get_host_attr_name(self, host_name: str) -> str:
         """Return a unique palette attribute name for a host."""
         if host_name not in self._host_attr_names:
-            if len(self._host_attr_names) < len(self._taken_attr_names):
-                self._taken_attr_names = set(self._host_attr_names.values())
             sanitized = (
                 host_name.lower()
                 .replace("-", "_")
@@ -383,9 +381,7 @@ class AnantaUrwidTUI:
                 texts.append(str(part))
         return " ".join(texts).lower()
 
-    def add_output(
-        self, message_parts: list[Any] | str, scroll: bool = True
-    ) -> None:
+    def add_output(self, message_parts: list[Any] | str) -> None:
         """Add output to the display."""
         if self.is_exiting and not any(
             s in self._exit_message_text(message_parts)
@@ -420,6 +416,14 @@ class AnantaUrwidTUI:
         else:
             widget = urwid.Text(processed_markup)
 
+        try:
+            focus = self.output_walker.focus
+            was_at_bottom = (
+                focus is None or focus >= len(self.output_walker) - 1
+            )
+        except Exception:
+            was_at_bottom = True
+
         self.output_walker.append(widget)
         if len(self.output_walker) > self.max_output_lines:
             del self.output_walker[
@@ -427,7 +431,7 @@ class AnantaUrwidTUI:
                 - (self.max_output_lines - self.trim_output_lines)
             ]
 
-        if scroll:
+        if was_at_bottom:
             self.output_walker.set_focus(len(self.output_walker) - 1)
 
         self._schedule_draw()
@@ -830,8 +834,6 @@ class AnantaUrwidTUI:
 
         try:
             self.loop.run()
-        except urwid.ExitMainLoop:
-            print("\nAnanta TUI exiting normally.")
         except KeyboardInterrupt:
             print("\nAnanta TUI interrupted by user (KeyboardInterrupt).")
             if not self.is_exiting:
@@ -842,6 +844,10 @@ class AnantaUrwidTUI:
             import traceback
 
             traceback.print_exc()
+        else:
+            # MainLoop.run suppresses ExitMainLoop internally, so a clean
+            # return means a normal exit.
+            print("\nAnanta TUI exiting normally.")
         finally:
             if not self.is_exiting:
                 self.is_exiting = True

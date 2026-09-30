@@ -90,14 +90,12 @@ class HostKeyPolicy:
     def __init__(
         self,
         known_hosts_path: os.PathLike | str | None = None,
-        override: bool = False,
     ):
         self.path = (
             Path(known_hosts_path)
             if known_hosts_path
             else DEFAULT_KNOWN_HOSTS_PATH
         )
-        self.override_requested = override
 
         # Maps entry name -> OpenSSH-format public key blob.
         self._entries: dict[str, str] = {}

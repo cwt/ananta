@@ -41,9 +41,9 @@ except ImportError:
     pass  # uvloop or winloop is an optional for speedup, not a requirement
 
 
-def _create_policy(override: bool = False) -> HostKeyPolicy:
+def _create_policy() -> HostKeyPolicy:
     """Build the session-wide host-key policy (seam for testing)."""
-    return HostKeyPolicy(override=override)
+    return HostKeyPolicy()
 
 
 async def _open_connection(
@@ -163,9 +163,7 @@ async def main(  # This is the non-TUI main function
     ]
     printing_task_group = asyncio.gather(*print_tasks)
 
-    policy = _create_policy(
-        override=override_mismatched_keys,
-    )
+    policy = _create_policy()
 
     # ---- Phase 1: pre-flight connect + host-key verification -------------
     connect_results = await asyncio.gather(
