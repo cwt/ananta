@@ -465,6 +465,81 @@ async def test_retry_connect_unrelated_host_mismatch_does_not_blame_current_host
     )  # Retried because it was an auth error, not this host's mismatch
 
 
+async def test_retry_connect_shared_entry_fails_fast(tmp_path, key_a):
+    """Two names sharing one ip:port must still fail fast on mismatch."""
+    from unittest.mock import patch
+
+    from ananta.ssh import retry_connect
+
+    kh = tmp_path / "known_hosts"
+    blob = key_a.export_public_key("openssh").decode().strip()
+    kh.write_text(f"10.0.0.9 {blob}\n", encoding="utf-8")
+    policy = HostKeyPolicy(known_hosts_path=kh)
+    wrong_key = asyncssh.generate_private_key("ssh-ed25519")
+
+    calls = {"n": 0}
+
+    async def fake_connect(**kwargs):
+        calls["n"] += 1
+        client = kwargs["client_factory"]()
+        assert (
+            client.validate_host_public_key(
+                "10.0.0.9", "10.0.0.9", 22, wrong_key
+            )
+            is False
+        )
+        raise asyncssh.Error(code=1, reason="host key verification failed")
+
+    # First alias records the mismatch.
+    with (
+        patch("ananta.ssh.asyncssh.connect", side_effect=fake_connect),
+        pytest.raises(HostKeyChangedError),
+    ):
+        await retry_connect(
+            ip_address="10.0.0.9",
+            ssh_port=22,
+            username="user",
+            client_keys=["/key"],
+            timeout=1,
+            max_retries=3,
+            policy=policy,
+        )
+    assert calls["n"] == 1
+    # Second alias for the same ip:port sees the existing record and
+    # must also fail fast instead of retrying a deterministic failure.
+    calls["n"] = 0
+    with (
+        patch("ananta.ssh.asyncssh.connect", side_effect=fake_connect),
+        pytest.raises(HostKeyChangedError),
+    ):
+        await retry_connect(
+            ip_address="10.0.0.9",
+            ssh_port=22,
+            username="user",
+            client_keys=["/key"],
+            timeout=1,
+            max_retries=3,
+            policy=policy,
+        )
+    assert calls["n"] == 1
+
+
+async def test_mismatch_record_refreshes_to_latest_key(tmp_path, key_a):
+    """A second different key updates the existing mismatch record."""
+    key_b = asyncssh.generate_private_key("ssh-ed25519")
+    key_c = asyncssh.generate_private_key("ssh-ed25519")
+    kh = tmp_path / "known_hosts"
+    blob = _openssh_blob(key_a).split(maxsplit=1)[1]
+    kh.write_text(f"refresh-host ssh-ed25519 {blob}\n", encoding="utf-8")
+    policy = HostKeyPolicy(known_hosts_path=kh)
+    assert policy.validate_key("refresh-host", "refresh-host", key_b) is False
+    assert len(policy.mismatches) == 1
+    assert policy.mismatches[0].new_blob == _openssh_blob(key_b)
+    assert policy.validate_key("refresh-host", "refresh-host", key_c) is False
+    assert len(policy.mismatches) == 1
+    assert policy.mismatches[0].new_blob == _openssh_blob(key_c)
+
+
 class TestAgainstRealSSHServer:
     """End-to-end tests against a live in-process asyncssh server.
 

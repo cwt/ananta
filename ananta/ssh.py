@@ -41,7 +41,6 @@ async def retry_connect(
     }  # try with the lowest latency algorithm first
     entry = _host_entry_name(ip_address, ssh_port)
     for attempt in range(max_retries + 1):
-        mismatches_seen = len(policy.mismatches)
         try:
             return await asyncio.wait_for(
                 asyncssh.connect(
@@ -63,9 +62,11 @@ async def retry_connect(
             )
         except (asyncssh.Error, OSError) as error:
             last_error = error
-            new_mismatches = policy.mismatches[mismatches_seen:]
-            if any(m.entry == entry for m in new_mismatches):
+            if any(m.entry == entry for m in policy.mismatches):
                 # Deterministic security failure: retrying cannot help.
+                # Check the full list (not just new records) so aliased
+                # hosts sharing one ip:port still fail fast when the
+                # first alias already recorded the mismatch.
                 raise HostKeyChangedError(
                     f"HOST KEY MISMATCH for {ip_address}: refusing to connect"
                 ) from error

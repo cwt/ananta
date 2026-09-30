@@ -188,7 +188,10 @@ class HostKeyPolicy:
                 # Unknown host: TOFU. Persist and report later.
                 self._trust_new_key(entry, key, presented)
                 return True
-            if not any(m.entry == entry for m in self._mismatches):
+            existing = next(
+                (m for m in self._mismatches if m.entry == entry), None
+            )
+            if existing is None:
                 self._mismatches.append(
                     MismatchRecord(
                         entry=entry,
@@ -197,6 +200,11 @@ class HostKeyPolicy:
                         new_blob=presented,
                     )
                 )
+            else:
+                # Refresh to latest presented key so a later change
+                # (k2 -> k3) and --override persist the newest blob.
+                existing.new_fingerprint = key.get_fingerprint()
+                existing.new_blob = presented
             return False
 
     def _trust_new_key(
