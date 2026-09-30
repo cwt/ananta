@@ -122,6 +122,8 @@ class HostKeyPolicy:
             raw_lines = self.path.read_text(encoding="utf-8").splitlines()
         except FileNotFoundError:
             return
+        except UnicodeError:
+            return  # Non-UTF8 file: ignore contents instead of crashing.
         except OSError:
             return  # Unreadable file: treated like an empty one.
 

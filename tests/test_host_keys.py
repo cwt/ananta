@@ -617,6 +617,14 @@ class TestAgainstRealSSHServer:
         assert kh.read_text(encoding="utf-8") == f"[127.0.0.1]:{port} {blob}\n"
 
 
+async def test_non_utf8_known_hosts_does_not_crash(tmp_path, key_a):
+    """A non-UTF8 known_hosts file must not crash policy loading."""
+    kh = tmp_path / "known_hosts"
+    kh.write_bytes(b"web-01 ssh-ed25519 AAAA\n\xff\n")
+    policy = HostKeyPolicy(known_hosts_path=kh)
+    assert policy.validate_key("web-01", "web-01", key_a) is True
+
+
 async def test_parse_hashed_name_and_caching():
     """Verify that _parse_hashed_name parses valid hashes and handles malformed input."""
     import base64
