@@ -142,6 +142,7 @@ async def print_output(
 ) -> None:
     """Print the output from the remote host with the appropriate prompt."""
     prompt = get_prompt(host_name, max_name_length, color)
+    suffix = RESET if color else ""
 
     if separate_output:
         with tempfile.SpooledTemporaryFile(
@@ -164,7 +165,7 @@ async def print_output(
                         line, prompt, allow_cursor_control, max_name_length
                     )
                     if allow_empty_line or allow_cursor_control or line.strip():
-                        print(f"{prompt}{adjusted_line}{RESET}")
+                        print(f"{prompt}{adjusted_line}{suffix}")
     else:
         while True:
             output = await output_queue.get()
@@ -176,7 +177,7 @@ async def print_output(
                     line, prompt, allow_cursor_control, max_name_length
                 )
                 if allow_empty_line or allow_cursor_control or line.strip():
-                    lines_to_print.append(f"{prompt}{adjusted_line}{RESET}")
+                    lines_to_print.append(f"{prompt}{adjusted_line}{suffix}")
             if lines_to_print:
                 async with print_lock:
                     for formatted_line in lines_to_print:

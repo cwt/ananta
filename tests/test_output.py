@@ -202,8 +202,8 @@ async def test_print_output_separate_output(capsys):
         )
         # Verify print calls
         expected_prompt = "[ host-1] "
-        mock_print.assert_any_call(f"{expected_prompt}line1{RESET}")
-        mock_print.assert_any_call(f"{expected_prompt}line2{RESET}")
+        mock_print.assert_any_call(f"{expected_prompt}line1")
+        mock_print.assert_any_call(f"{expected_prompt}line2")
         # Verify lock was used
         lock.__aenter__.assert_called()
 
@@ -231,10 +231,10 @@ async def test_print_output_separate_output_without_trailing_newline(capsys):
         )
         expected_prompt = "[ host-1] "
         mock_print.assert_any_call(
-            f"{expected_prompt}partial chunk without newline{RESET}"
+            f"{expected_prompt}partial chunk without newline"
         )
         mock_print.assert_any_call(
-            f"{expected_prompt}{get_end_marker('host-1', 30, color=False)}{RESET}"
+            f"{expected_prompt}{get_end_marker('host-1', 30, color=False)}"
         )
 
 
@@ -261,9 +261,36 @@ async def test_print_output_interleaved(capsys):
         )
         # Verify only non-empty line printed
         expected_prompt = "[ host-2] "
-        mock_print.assert_called_once_with(f"{expected_prompt}line1{RESET}")
+        mock_print.assert_called_once_with(f"{expected_prompt}line1")
         # Verify lock was used for each line
         lock.__aenter__.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_print_output_with_color_appends_reset():
+    """With color enabled, printed lines end with RESET."""
+    from unittest.mock import AsyncMock, patch
+
+    queue = AsyncMock()
+    queue.get.side_effect = [
+        "line1\n",
+        None,
+    ]
+    lock = AsyncMock()
+    with patch("ananta.output.print") as mock_print:
+        await print_output(
+            host_name="host-2",
+            max_name_length=7,
+            allow_empty_line=False,
+            allow_cursor_control=False,
+            separate_output=False,
+            print_lock=lock,
+            output_queue=queue,
+            color=True,
+        )
+        printed = mock_print.call_args[0][0]
+        assert printed.endswith(RESET)
+        assert "\x1b[" in printed
 
 
 def test_calculate_remote_width():
