@@ -13,7 +13,11 @@ import asyncssh
 import urwid
 
 from ..config import get_hosts
-from ..host_keys import HostKeyChangedError, HostKeyPolicy
+from ..host_keys import (
+    HostKeyChangedError,
+    HostKeyPolicy,
+    _host_entry_name,
+)
 from ..output import calculate_remote_width, make_color_cycle
 from ..ssh import (
     _close_ssh_connection,
@@ -224,6 +228,7 @@ class AnantaUrwidTUI:
         }
         # Mandatory host-key verification shared across all connections.
         self.host_key_policy = HostKeyPolicy()
+        self.mismatch_abort = False
         self._ansi_states: dict[str, _AnsiState] = {}
         self._host_locks: dict[str, asyncio.Lock] = {}
         self._host_attr_names: dict[str, str] = {}
@@ -546,9 +551,68 @@ class AnantaUrwidTUI:
 
         await asyncio.gather(*connect_tasks, return_exceptions=True)
 
+        if self.host_key_policy.mismatches and not self.is_exiting:
+            self.mismatch_abort = True
+            self._report_mismatches()
+            return
+
         if self.initial_command and not self.is_exiting:
             self.input_field.set_edit_text(self.initial_command)
             self.process_command(self.initial_command)
+
+    def _report_mismatches(self) -> None:
+        """Show a loud mismatch report and how to recover."""
+        self.add_output(
+            [
+                (
+                    "status_error",
+                    "!! HOST KEY MISMATCH DETECTED - batch aborted, "
+                    "no commands executed.",
+                )
+            ]
+        )
+        for record in self.host_key_policy.mismatches:
+            self.add_output(
+                [
+                    (
+                        "status_error",
+                        f"  {record.entry}: recorded "
+                        f"{record.old_fingerprint} / presented "
+                        f"{record.new_fingerprint}",
+                    )
+                ]
+            )
+        self.add_output(
+            [
+                (
+                    "status_neutral",
+                    "Verify out-of-band, then type `override` to accept "
+                    "the new keys or `exit` to quit.",
+                )
+            ]
+        )
+
+    async def _override_and_reconnect(self) -> None:
+        """Accept mismatched keys and reconnect affected hosts."""
+        overridden_entries = {m.entry for m in self.host_key_policy.mismatches}
+        self.host_key_policy.apply_overrides()
+        self.mismatch_abort = False
+        self.add_output(
+            [("status_ok", "Mismatched keys accepted. Reconnecting...")]
+        )
+        retry_hosts = [
+            h
+            for h in self.hosts
+            if _host_entry_name(h[1], h[2]) in overridden_entries
+        ]
+        reconnect_tasks = [
+            asyncio.create_task(self.connect_host(*host_details))
+            for host_details in retry_hosts
+        ]
+        for task in reconnect_tasks:
+            self.async_tasks.add(task)
+            task.add_done_callback(self.async_tasks.discard)
+        await asyncio.gather(*reconnect_tasks, return_exceptions=True)
 
     def process_command(self, command: str) -> None:
         """Process a command entered in the input field."""
@@ -558,6 +622,31 @@ class AnantaUrwidTUI:
         command = command.strip()
         if command.lower() == "exit":
             self.initiate_exit()
+            return
+        if command.lower() == "override":
+            if not self.host_key_policy.mismatches and not self.mismatch_abort:
+                self.add_output(
+                    [("status_neutral", "No mismatched keys to accept.")]
+                )
+                self.input_field.set_edit_text("")
+                return
+            self.add_output([("command_echo", ">>> override")])
+            self.input_field.set_edit_text("")
+            task = asyncio.create_task(self._override_and_reconnect())
+            self.async_tasks.add(task)
+            task.add_done_callback(self.async_tasks.discard)
+            return
+        if self.mismatch_abort:
+            self.add_output(
+                [
+                    (
+                        "status_error",
+                        "Aborted: resolve host key mismatches first "
+                        "(`override` or `exit`).",
+                    )
+                ]
+            )
+            self.input_field.set_edit_text("")
             return
 
         self.add_output([("command_echo", f">>> {command}")])

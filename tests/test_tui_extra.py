@@ -199,6 +199,62 @@ def test_hostname_keyword_does_not_smuggle_output(mock_tui):
     mock_tui.output_walker.append.assert_not_called()
 
 
+@pytest.mark.asyncio
+async def test_mismatch_aborts_initial_command(mock_tui):
+    """A recorded mismatch must block automatic command dispatch."""
+    from ananta.host_keys import MismatchRecord
+
+    mock_tui.initial_command = "uptime"
+    mock_tui.input_field = MagicMock()
+    mock_tui.host_key_policy._mismatches.append(
+        MismatchRecord(
+            entry="10.0.0.1",
+            old_fingerprint="old",
+            new_fingerprint="new",
+            new_blob="blob",
+        )
+    )
+    with patch.object(mock_tui, "connect_host", new_callable=AsyncMock):
+        await mock_tui.connect_all_hosts()
+    assert mock_tui.mismatch_abort is True
+    mock_tui.input_field.set_edit_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_override_reconnects_mismatched_hosts(mock_tui):
+    """Typing override must accept keys and reconnect affected hosts."""
+    from ananta.host_keys import MismatchRecord
+
+    mock_tui.asyncio_loop = asyncio.get_running_loop()
+    mock_tui.input_field = MagicMock()
+    mock_tui.input_field.edit_text = "override"
+    mock_tui.host_key_policy._mismatches.append(
+        MismatchRecord(
+            entry="10.0.0.1",
+            old_fingerprint="old",
+            new_fingerprint="new",
+            new_blob="blob",
+        )
+    )
+    mock_tui.mismatch_abort = True
+    with (
+        patch.object(
+            mock_tui.host_key_policy,
+            "apply_overrides",
+            wraps=mock_tui.host_key_policy.apply_overrides,
+        ) as mock_apply,
+        patch.object(
+            mock_tui, "connect_host", new_callable=AsyncMock
+        ) as mock_connect,
+    ):
+        mock_tui.process_command("override")
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        mock_apply.assert_called_once()
+        assert mock_tui.mismatch_abort is False
+        mock_connect.assert_called_once()
+
+
 @patch("ananta.tui.urwid.AsyncioEventLoop")
 @patch("ananta.tui.AnantaMainLoop")
 def test_run_method_exceptions(mock_main_loop, mock_event_loop, mock_tui):
