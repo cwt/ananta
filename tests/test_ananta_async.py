@@ -462,6 +462,43 @@ async def test_main_unreachable_host_reported_once_and_not_executed(
 
 
 @pytest.mark.asyncio
+async def test_main_exits_when_no_host_connects(monkeypatch, tmp_path):
+    """When every host fails to connect, the batch must exit non-zero."""
+    from ananta.ananta import main
+    from ananta.host_keys import HostKeyPolicy
+
+    kh = tmp_path / "known_hosts"
+    policy = HostKeyPolicy(known_hosts_path=kh)
+    monkeypatch.setattr("ananta.ananta._create_policy", lambda **kwargs: policy)
+    hosts_data = [
+        ("dead-1", "192.0.2.1", 22, "u1", "#", 5.0, 2),
+        ("dead-2", "192.0.2.2", 22, "u2", "#", 5.0, 2),
+    ]
+    monkeypatch.setattr(
+        "ananta.ananta.get_hosts", MagicMock(return_value=(hosts_data, 6))
+    )
+    monkeypatch.setattr(
+        "ananta.ananta.establish_ssh_connection",
+        AsyncMock(side_effect=ConnectionError("Host down")),
+    )
+    monkeypatch.setattr("ananta.ananta.print_output", AsyncMock())
+    monkeypatch.setattr("ananta.ananta.execute", AsyncMock())
+    with pytest.raises(SystemExit) as excinfo:
+        await main(
+            host_file="hosts.csv",
+            ssh_command="uptime",
+            local_display_width=80,
+            separate_output=False,
+            allow_empty_line=False,
+            allow_cursor_control=False,
+            default_key=None,
+            color=False,
+            host_tags=None,
+        )
+    assert excinfo.value.code == 2
+
+
+@pytest.mark.asyncio
 async def test_open_connection_cancelled():
     """Test that connection cancellation re-raises CancelledError."""
     from ananta.ananta import _open_connection

@@ -309,6 +309,10 @@ async def main(  # This is the non-TUI main function
         for entry, fingerprint in policy.added_keys:
             print(f"  - {entry} ({fingerprint})")
 
+    if not connections:
+        print("Error: Could not connect to any host.")
+        sys.exit(2)
+
 
 def _get_loop_module_name() -> str:
     """Return the module name of a freshly created event loop (uvloop if available)."""
