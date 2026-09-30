@@ -41,6 +41,18 @@ ruff = "^0.16.0"
 module = "urwid"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "uvloop"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "winloop"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tomli"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = ["ignore::DeprecationWarning"]
