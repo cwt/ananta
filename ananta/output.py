@@ -15,11 +15,6 @@ def make_color_cycle(colors: list[str], seed: int | None = 42) -> cycle:
     return cycle(shuffled)
 
 
-def _make_color_cycle(colors: list[str]) -> cycle:
-    """Deprecated alias kept for backward compatibility."""
-    return make_color_cycle(colors)
-
-
 COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
 COLORS_CYCLE = make_color_cycle(COLORS)
 HOST_COLOR: dict[str, str] = {}  # Dictionary to store host colors
