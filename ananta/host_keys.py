@@ -61,17 +61,18 @@ def _hashed_match(line_name: str, hostname: str) -> bool:
     return hmac.compare_digest(digest, expected)
 
 
-def _equivalent_entry_names(entry: str) -> set[str]:
+@functools.lru_cache(maxsize=4096)
+def _equivalent_entry_names(entry: str) -> frozenset[str]:
     """Return the set of equivalent known_hosts entry names for an entry."""
     if entry.endswith("]:22"):
         bare = entry[1:-4]
-        return {entry, bare, f"[{bare}]"}
+        return frozenset({entry, bare, f"[{bare}]"})
     elif entry.startswith("[") and entry.endswith("]"):
         bare = entry[1:-1]
-        return {entry, bare, f"[{bare}]:22"}
+        return frozenset({entry, bare, f"[{bare}]:22"})
     elif not entry.startswith("["):
-        return {entry, f"[{entry}]:22", f"[{entry}]"}
-    return {entry}
+        return frozenset({entry, f"[{entry}]:22", f"[{entry}]"})
+    return frozenset({entry})
 
 
 @dataclass
