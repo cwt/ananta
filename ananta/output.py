@@ -1,4 +1,5 @@
 import asyncio
+import random
 import re
 import tempfile
 from itertools import cycle
@@ -16,6 +17,11 @@ def make_color_cycle(colors: list[str], seed: int | None = 42) -> cycle:
 
 
 COLORS = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
+# Deterministic color order used for host assignment. Using insertion order
+# (rather than a module-global cycle) keeps colors stable across test runs
+# even when HOST_COLOR is cleared between tests.
+_COLOR_ORDER: list[str] = list(COLORS)
+random.Random(42).shuffle(_COLOR_ORDER)
 COLORS_CYCLE = make_color_cycle(COLORS)
 HOST_COLOR: dict[str, str] = {}  # Dictionary to store host colors
 
@@ -115,9 +121,12 @@ def adjust_cursor_with_prompt(
 
 def _get_host_color(host_name: str) -> str:
     """Get the color associated with the host name."""
-    if HOST_COLOR.get(host_name) is None:
-        # If the host name is not in the dictionary, assign a new color
-        HOST_COLOR[host_name] = next(COLORS_CYCLE)
+    if host_name not in HOST_COLOR:
+        # Assign deterministically based on insertion order so colors stay
+        # stable across runs even when HOST_COLOR is cleared between tests.
+        HOST_COLOR[host_name] = _COLOR_ORDER[
+            len(HOST_COLOR) % len(_COLOR_ORDER)
+        ]
     return HOST_COLOR[host_name]
 
 
