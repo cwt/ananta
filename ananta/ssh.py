@@ -122,6 +122,17 @@ def get_ssh_keys(key_path: str | None, default_key: str | None) -> list[str]:
     return available_keys
 
 
+def enable_keepalive(
+    conn: asyncssh.SSHClientConnection,
+) -> asyncssh.SSHClientConnection:
+    """Enable TCP keepalive on a connection, ignoring failures."""
+    try:
+        conn.set_keepalive(interval=30, count_max=3)
+    except Exception:
+        pass
+    return conn
+
+
 async def establish_ssh_connection(
     ip_address: str,
     ssh_port: int,

@@ -338,6 +338,19 @@ class HostKeyPolicy:
         return key.get_fingerprint()
 
 
+def mismatch_report_lines(mismatches: list[MismatchRecord]) -> list[str]:
+    """Shared lines describing detected host-key mismatches."""
+    lines = [
+        "!! HOST KEY MISMATCH DETECTED - batch aborted, no commands executed."
+    ]
+    for record in mismatches:
+        lines.append(
+            f"  {record.entry}: recorded {record.old_fingerprint} / "
+            f"presented {record.new_fingerprint}"
+        )
+    return lines
+
+
 def make_client_factory(policy: HostKeyPolicy, entry: str, hostname: str):
     """Build an asyncssh client_factory bound to a policy and target host."""
 

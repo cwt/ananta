@@ -15,7 +15,12 @@ import asyncssh
 
 from . import __version__
 from .config import get_hosts
-from .host_keys import HostKeyPolicy, MismatchRecord, _host_entry_name
+from .host_keys import (
+    HostKeyPolicy,
+    MismatchRecord,
+    _host_entry_name,
+    mismatch_report_lines,
+)
 from .output import (  # Used by non-TUI mode
     calculate_remote_width,
     get_end_marker,
@@ -23,6 +28,7 @@ from .output import (  # Used by non-TUI mode
 )
 from .ssh import (  # Used by non-TUI mode
     _close_ssh_connection,
+    enable_keepalive,
     establish_ssh_connection,
     execute,
 )
@@ -87,23 +93,14 @@ async def _open_connection(
     except (asyncssh.Error, OSError, ValueError) as error:
         await output_queue.put(f"Error connecting to {host_name}: {error}")
         return None
-    try:
-        conn.set_keepalive(interval=30, count_max=3)
-    except Exception:
-        pass
-    return conn
+    return enable_keepalive(conn)
 
 
 def _print_mismatch_report(mismatches: list[MismatchRecord]) -> None:
     """Loudly report host-key mismatches; no commands have run yet."""
-    print(
-        "\n!! HOST KEY MISMATCH DETECTED - batch aborted, no commands executed."
-    )
-    for record in mismatches:
-        print(
-            f"  {record.entry}: recorded {record.old_fingerprint} / "
-            f"presented {record.new_fingerprint}"
-        )
+    print()
+    for line in mismatch_report_lines(mismatches):
+        print(line)
     print(
         "\nThis may indicate a server rebuild or a man-in-the-middle attack.\n"
         "Verify out-of-band (console access, colleague, change ticket), then:\n"

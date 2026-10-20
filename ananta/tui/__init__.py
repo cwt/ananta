@@ -17,10 +17,12 @@ from ..host_keys import (
     HostKeyChangedError,
     HostKeyPolicy,
     _host_entry_name,
+    mismatch_report_lines,
 )
 from ..output import calculate_remote_width, make_color_cycle
 from ..ssh import (
     _close_ssh_connection,
+    enable_keepalive,
     establish_ssh_connection,
     stream_command_output,
 )
@@ -521,7 +523,7 @@ class AnantaUrwidTUI:
                 prompt + [("status_error", f"Connection failed: {e}")]
             )
         else:
-            conn.set_keepalive(interval=30, count_max=3)
+            enable_keepalive(conn)
             self.connections[host_name] = conn
             self.add_output(prompt + [("status_ok", "Connected.")])
 
@@ -562,26 +564,8 @@ class AnantaUrwidTUI:
 
     def _report_mismatches(self) -> None:
         """Show a loud mismatch report and how to recover."""
-        self.add_output(
-            [
-                (
-                    "status_error",
-                    "!! HOST KEY MISMATCH DETECTED - batch aborted, "
-                    "no commands executed.",
-                )
-            ]
-        )
-        for record in self.host_key_policy.mismatches:
-            self.add_output(
-                [
-                    (
-                        "status_error",
-                        f"  {record.entry}: recorded "
-                        f"{record.old_fingerprint} / presented "
-                        f"{record.new_fingerprint}",
-                    )
-                ]
-            )
+        for line in mismatch_report_lines(self.host_key_policy.mismatches):
+            self.add_output([("status_error", line)])
         self.add_output(
             [
                 (
