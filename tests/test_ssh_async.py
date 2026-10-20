@@ -236,6 +236,32 @@ async def test_execute_connection_error(mock_establish_conn):
 
 
 @patch("ananta.ssh.establish_ssh_connection", new_callable=AsyncMock)
+async def test_execute_value_error(mock_establish_conn):
+    """Test execute handling a ValueError from connection setup."""
+    mock_establish_conn.side_effect = ValueError("Bad value")
+    output_queue = AsyncMock(spec=asyncio.Queue)
+
+    await execute(
+        "host1",
+        "1.1.1.1",
+        22,
+        "user",
+        None,
+        "cmd",
+        10,
+        80,
+        False,
+        None,
+        output_queue,
+        True,
+        5.0,
+        2,
+    )
+
+    output_queue.put.assert_any_await("Error connecting to host1: Bad value")
+
+
+@patch("ananta.ssh.establish_ssh_connection", new_callable=AsyncMock)
 async def test_execute_runtime_error(mock_establish_conn):
     """Test execute handling a RuntimeError."""
     # This is a bit tricky to trigger naturally, so we'll mock a later call to raise it.

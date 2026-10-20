@@ -314,6 +314,8 @@ async def execute(
             )
     except ConnectionError as error:
         await output_queue.put(f"Error connecting to {host_name}: {error}")
+    except ValueError as error:
+        await output_queue.put(f"Error connecting to {host_name}: {error}")
     except (RuntimeError, OSError) as error:
         await output_queue.put(
             f"Error executing command on {host_name}: {error}"
