@@ -300,11 +300,9 @@ async def main(  # This is the non-TUI main function
     try:
         await asyncio.gather(*exec_tasks)
     finally:
-        # Signal end of output even if a task failed, so print tasks never hang.
-        for queue in output_queues.values():
-            await queue.put(None)
-
-        # Wait for all printing tasks to complete (they exit on the sentinel)
+        # Wait for all printing tasks to complete. Each host's queue already
+        # received its sentinel from execute() (or from the unconnected-host
+        # finalization above), so no extra sentinel is emitted here.
         await printing_task_group
 
     # Post-session report of keys trusted on first use.

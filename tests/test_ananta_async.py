@@ -99,6 +99,15 @@ async def test_main_with_hosts_and_options(
     conn1, conn2 = MagicMock(), MagicMock()
     mock_establish.side_effect = [conn1, conn2]
 
+    async def fake_execute(*args, **kwargs):
+        queue = kwargs.get("output_queue")
+        if queue is None and len(args) > 10:
+            queue = args[10]
+        if queue is not None:
+            await queue.put(None)
+
+    mock_execute.side_effect = fake_execute
+
     await main(
         host_file="dummy_hosts.toml",
         ssh_command="ls -l",
@@ -192,7 +201,15 @@ async def test_main_signals_printers_when_execute_raises(
     q1.put = AsyncMock()
     mock_queue_cls.side_effect = [q1]
 
-    mock_execute.side_effect = OSError("unexpected failure")
+    async def fake_execute(*args, **kwargs):
+        queue = kwargs.get("output_queue")
+        if queue is None and len(args) > 10:
+            queue = args[10]
+        if queue is not None:
+            await queue.put(None)
+        raise OSError("unexpected failure")
+
+    mock_execute.side_effect = fake_execute
 
     with pytest.raises(OSError):
         await main(
