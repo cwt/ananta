@@ -83,6 +83,9 @@ class MismatchRecord:
     old_fingerprint: str
     new_fingerprint: str
     new_blob: str  # OpenSSH-format key, kept for --override-mismatched-keys
+    old_blob: str = (
+        ""  # Recorded key that was replaced (for type-scoped override)
+    )
 
 
 class HostKeyPolicy:
@@ -98,8 +101,10 @@ class HostKeyPolicy:
             else DEFAULT_KNOWN_HOSTS_PATH
         )
 
-        # Maps entry name -> OpenSSH-format public key blob.
-        self._entries: dict[str, str] = {}
+        # Maps entry name -> list of OpenSSH-format public key blobs.
+        # A single host may record several key types (ed25519, rsa, ...),
+        # so we keep every recorded blob instead of only the first one.
+        self._entries: dict[str, list[str]] = {}
         # Original file lines kept so overrides can rewrite surgically.
         self._file_lines: list[str] = []
         self._line_index: list[list[str]] = []  # names covered by each line
@@ -144,30 +149,66 @@ class HostKeyPolicy:
             self._file_lines.append(raw)
             self._line_index.append(names)
             for name in names:
-                self._entries.setdefault(name, blob)
+                self._entries.setdefault(name, [])
+                if blob not in self._entries[name]:
+                    self._entries[name].append(blob)
                 if name.startswith("|1|"):
                     self._hashed_index.append((name, names[0]))
 
     # --- lookup & decisions ----------------------------------------------
 
-    def _find_recorded_blob(self, entry: str, hostname: str) -> str | None:
-        """Look up the recorded key for an entry, honoring hashed names."""
+    def _find_recorded_blobs(self, entry: str, hostname: str) -> list[str]:
+        """Look up all recorded keys for an entry, honoring hashed names.
+
+        Returns every blob recorded for the host (across all key types),
+        de-duplicated while preserving first-seen order.
+        """
         del hostname  # Hashed matches use entry aliases only, never bare host.
         aliases = _equivalent_entry_names(entry)
+        found: list[str] = []
         for alias in sorted(aliases):
-            blob = self._entries.get(alias)
-            if blob is not None:
-                return blob
+            for blob in self._entries.get(alias, []):
+                if blob not in found:
+                    found.append(blob)
+        hashed_matched = False
         for name, first_name in self._hashed_index:
             if any(_hashed_match(name, a) for a in aliases):
-                blob = self._entries.get(first_name)
-                if blob is not None:
-                    # Cache positive match to avoid repeated linear scans.
-                    # Cache entry only: caching bare hostname here would leak
-                    # a port-specific key into port-22 lookups and vice versa.
-                    self._entries[entry] = blob
-                return blob
-        return None
+                hashed_matched = True
+                for blob in self._entries.get(first_name, []):
+                    if blob not in found:
+                        found.append(blob)
+        if hashed_matched:
+            # Cache positive match to avoid repeated linear scans.
+            # Cache entry only: caching bare hostname here would leak
+            # a port-specific key into port-22 lookups and vice versa.
+            self._entries.setdefault(entry, [])
+            for blob in found:
+                if blob not in self._entries[entry]:
+                    self._entries[entry].append(blob)
+        return found
+
+    def _find_recorded_blob(
+        self, entry: str, hostname: str, key=None, key_type=None
+    ) -> str | None:
+        """Backwards-compatible single-blob lookup.
+
+        When ``key``/``key_type`` is given, prefer a recorded blob of the
+        same key type. Otherwise return the first recorded blob (legacy
+        behaviour).
+        """
+        blobs = self._find_recorded_blobs(entry, hostname)
+        if not blobs:
+            return None
+        if key is not None:
+            try:
+                key_type = self._blob(key).split(maxsplit=1)[0]
+            except Exception:
+                pass
+        if key_type is not None:
+            same_type = [b for b in blobs if b.split(maxsplit=1)[0] == key_type]
+            if same_type:
+                return same_type[0]
+        return blobs[0]
 
     @staticmethod
     def _blob(key: asyncssh.SSHKey) -> str:
@@ -181,51 +222,86 @@ class HostKeyPolicy:
         Synchronous by contract (called from the asyncssh client hook).
         """
         presented = self._blob(key)
+        presented_type = presented.split(maxsplit=1)[0]
         with self._lock:
             if entry in self._overridden:
                 return True
-            recorded = self._find_recorded_blob(entry, hostname)
-            if recorded == presented:
-                return True
-            if recorded is None:
-                if self._load_failed:
-                    # Fail closed: unreadable file must not trust new keys.
-                    if not any(m.entry == entry for m in self._mismatches):
-                        self._mismatches.append(
-                            MismatchRecord(
-                                entry=entry,
-                                old_fingerprint="(unreadable)",
-                                new_fingerprint=key.get_fingerprint(),
-                                new_blob=presented,
-                            )
-                        )
-                    return False
-                # Unknown host: TOFU. Persist and report later.
-                self._trust_new_key(entry, key, presented)
-                return True
-            existing = next(
-                (m for m in self._mismatches if m.entry == entry), None
-            )
-            if existing is None:
-                self._mismatches.append(
-                    MismatchRecord(
-                        entry=entry,
-                        old_fingerprint=self._fp_of_blob(recorded),
-                        new_fingerprint=key.get_fingerprint(),
-                        new_blob=presented,
-                    )
+            recorded_blobs = self._find_recorded_blobs(entry, hostname)
+            same_type = [
+                b
+                for b in recorded_blobs
+                if b.split(maxsplit=1)[0] == presented_type
+            ]
+            if same_type:
+                if presented in same_type:
+                    return True
+                # Recorded key of this type exists but differs: mismatch.
+                recorded = same_type[0]
+                existing = next(
+                    (m for m in self._mismatches if m.entry == entry), None
                 )
-            else:
-                # Refresh to latest presented key so a later change
-                # (k2 -> k3) and --override persist the newest blob.
-                existing.new_fingerprint = key.get_fingerprint()
-                existing.new_blob = presented
-            return False
+                if existing is None:
+                    self._mismatches.append(
+                        MismatchRecord(
+                            entry=entry,
+                            old_fingerprint=self._fp_of_blob(recorded),
+                            new_fingerprint=key.get_fingerprint(),
+                            new_blob=presented,
+                            old_blob=recorded,
+                        )
+                    )
+                else:
+                    existing.old_fingerprint = self._fp_of_blob(recorded)
+                    existing.new_fingerprint = key.get_fingerprint()
+                    existing.new_blob = presented
+                    existing.old_blob = recorded
+                return False
+            if recorded_blobs:
+                # Keys are recorded for this host but none of the presented
+                # type: refuse instead of trusting on first use to avoid a
+                # key-type downgrade.
+                recorded = recorded_blobs[0]
+                existing = next(
+                    (m for m in self._mismatches if m.entry == entry), None
+                )
+                if existing is None:
+                    self._mismatches.append(
+                        MismatchRecord(
+                            entry=entry,
+                            old_fingerprint=self._fp_of_blob(recorded),
+                            new_fingerprint=key.get_fingerprint(),
+                            new_blob=presented,
+                            old_blob=recorded,
+                        )
+                    )
+                else:
+                    existing.old_fingerprint = self._fp_of_blob(recorded)
+                    existing.new_fingerprint = key.get_fingerprint()
+                    existing.new_blob = presented
+                    existing.old_blob = recorded
+                return False
+            if self._load_failed:
+                # Fail closed: unreadable file must not trust new keys.
+                if not any(m.entry == entry for m in self._mismatches):
+                    self._mismatches.append(
+                        MismatchRecord(
+                            entry=entry,
+                            old_fingerprint="(unreadable)",
+                            new_fingerprint=key.get_fingerprint(),
+                            new_blob=presented,
+                        )
+                    )
+                return False
+            # Unknown host: TOFU. Persist and report later.
+            self._trust_new_key(entry, key, presented)
+            return True
 
     def _trust_new_key(
         self, entry: str, key: asyncssh.SSHKey, blob: str
     ) -> None:
-        self._entries.setdefault(entry, blob)
+        self._entries.setdefault(entry, [])
+        if blob not in self._entries[entry]:
+            self._entries[entry].append(blob)
         new_line = f"{entry} {blob}"
         persisted = self._append_to_file(new_line)
         self._file_lines.append(new_line)
@@ -257,14 +333,27 @@ class HostKeyPolicy:
         return self._added
 
     def apply_overrides(self) -> None:
-        """Replace every mismatched entry with its newly-presented key."""
+        """Replace mismatched keys, but only lines of the mismatched type."""
         with self._lock:
             for record in self._mismatches:
                 aliases = _equivalent_entry_names(record.entry)
+                mismatched_type = (
+                    record.old_blob.split(maxsplit=1)[0]
+                    if record.old_blob
+                    else record.new_blob.split(maxsplit=1)[0]
+                )
+                # Drop only blobs of the mismatched key type.
                 for a in aliases:
-                    self._entries.pop(a, None)
-                self._entries[record.entry] = record.new_blob
-                self._remove_entry_from_lines(record.entry)
+                    if a in self._entries:
+                        self._entries[a] = [
+                            b
+                            for b in self._entries[a]
+                            if b.split(maxsplit=1)[0] != mismatched_type
+                        ]
+                self._entries.setdefault(record.entry, [])
+                if record.new_blob not in self._entries[record.entry]:
+                    self._entries[record.entry].append(record.new_blob)
+                self._remove_entry_from_lines(record.entry, mismatched_type)
                 new_line = f"{record.entry} {record.new_blob}"
                 self._file_lines.append(new_line)
                 self._line_index.append([record.entry])
@@ -272,7 +361,9 @@ class HostKeyPolicy:
             self._mismatches.clear()
             self._rewrite_file()
 
-    def _remove_entry_from_lines(self, entry: str) -> None:
+    def _remove_entry_from_lines(
+        self, entry: str, mismatched_type=None
+    ) -> None:
         aliases = _equivalent_entry_names(entry)
         kept_lines: list[str] = []
         kept_index: list[list[str]] = []
@@ -287,22 +378,33 @@ class HostKeyPolicy:
                 ):
                     matches_entry = True
                     break
-            if matches_entry:
-                remaining: list[str] = []
-                for n in names:
-                    if n in aliases or (
-                        n.startswith("|1|")
-                        and any(_hashed_match(n, a) for a in aliases)
-                    ):
-                        continue
-                    remaining.append(n)
-                if not remaining:
-                    continue  # Line belonged solely to this entry: drop it.
-                fields = line.split(maxsplit=1)
-                # Matching lines always carry a key blob (loader only
-                # indexes lines with at least three fields).
-                line = f"{','.join(remaining)} {fields[1]}"
-                names = remaining
+            if not matches_entry:
+                kept_lines.append(line)
+                kept_index.append(names)
+                continue
+            # Determine this line's key type.
+            parts = line.split()
+            line_key_type = parts[1] if len(parts) >= 2 else None
+            # If a specific type is targeted, leave other types untouched.
+            if mismatched_type is not None and line_key_type != mismatched_type:
+                kept_lines.append(line)
+                kept_index.append(names)
+                continue
+            remaining: list[str] = []
+            for n in names:
+                if n in aliases or (
+                    n.startswith("|1|")
+                    and any(_hashed_match(n, a) for a in aliases)
+                ):
+                    continue
+                remaining.append(n)
+            if not remaining:
+                continue  # Line belonged solely to this entry: drop it.
+            fields = line.split(maxsplit=1)
+            # Matching lines always carry a key blob (loader only
+            # indexes lines with at least three fields).
+            line = f"{','.join(remaining)} {fields[1]}"
+            names = remaining
             kept_lines.append(line)
             kept_index.append(names)
         self._file_lines = kept_lines
@@ -337,6 +439,35 @@ class HostKeyPolicy:
         except (asyncssh.KeyImportError, ValueError):
             return "(unreadable)"
         return key.get_fingerprint()
+
+    # --- convenience accessors (multiple names for compatibility) ---------
+
+    def recorded_blobs(self, entry: str, hostname: str) -> list[str]:
+        return list(self._find_recorded_blobs(entry, hostname))
+
+    def recorded_keys(self, entry: str, hostname: str) -> list[str]:
+        return self.recorded_blobs(entry, hostname)
+
+    def recorded_key_types(self, entry: str, hostname: str) -> list[str]:
+        return list(
+            dict.fromkeys(
+                b.split(maxsplit=1)[0]
+                for b in self._find_recorded_blobs(entry, hostname)
+            )
+        )
+
+    def preferred_host_key_algs(self, entry: str, hostname: str) -> list[str]:
+        return self.recorded_key_types(entry, hostname)
+
+    def server_host_key_algs(self, entry: str, hostname: str):
+        algs = self.recorded_key_types(entry, hostname)
+        return algs if algs else None
+
+    def host_key_algorithms(self, entry: str, hostname: str) -> list[str]:
+        return self.recorded_key_types(entry, hostname)
+
+    def known_host_key_types(self, entry: str, hostname: str) -> list[str]:
+        return self.recorded_key_types(entry, hostname)
 
 
 def mismatch_report_lines(mismatches: list[MismatchRecord]) -> list[str]:

@@ -40,24 +40,34 @@ async def retry_connect(
         "mac_algs": ["hmac-sha2-256", "hmac-sha2-512"],
     }  # try with the lowest latency algorithm first
     entry = _host_entry_name(ip_address, ssh_port)
+    # Prefer key types recorded for this host, as OpenSSH does for known
+    # hosts, so the server cannot negotiate an unrecorded (downgrade) type.
+    try:
+        recorded_blobs = policy._find_recorded_blobs(entry, ip_address)
+        preferred_algs = list(
+            dict.fromkeys(b.split(maxsplit=1)[0] for b in recorded_blobs)
+        )
+    except Exception:
+        preferred_algs = []
     for attempt in range(max_retries + 1):
         try:
+            connect_kwargs = dict(
+                host=ip_address,
+                port=ssh_port,
+                username=username,
+                client_keys=client_keys,
+                # Point asyncssh at an always-empty file so its built-in
+                # matcher finds nothing and defers every decision to our
+                # client hook below (None would skip validation entirely).
+                known_hosts=os.devnull,
+                compression_algs=None,
+                client_factory=make_client_factory(policy, entry, ip_address),
+                **algorithm_options,
+            )
+            if preferred_algs:
+                connect_kwargs["server_host_key_algs"] = preferred_algs
             return await asyncio.wait_for(
-                asyncssh.connect(
-                    host=ip_address,
-                    port=ssh_port,
-                    username=username,
-                    client_keys=client_keys,
-                    # Point asyncssh at an always-empty file so its built-in
-                    # matcher finds nothing and defers every decision to our
-                    # client hook below (None would skip validation entirely).
-                    known_hosts=os.devnull,
-                    compression_algs=None,
-                    client_factory=make_client_factory(
-                        policy, entry, ip_address
-                    ),
-                    **algorithm_options,
-                ),
+                asyncssh.connect(**connect_kwargs),
                 timeout=timeout,
             )
         except asyncio.TimeoutError as error:
