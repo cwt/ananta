@@ -43,10 +43,7 @@ async def retry_connect(
     # Prefer key types recorded for this host, as OpenSSH does for known
     # hosts, so the server cannot negotiate an unrecorded (downgrade) type.
     try:
-        recorded_blobs = policy._find_recorded_blobs(entry, ip_address)
-        preferred_algs = list(
-            dict.fromkeys(b.split(maxsplit=1)[0] for b in recorded_blobs)
-        )
+        preferred_algs = policy.server_host_key_algs(entry, ip_address) or []
     except Exception:
         preferred_algs = []
     for attempt in range(max_retries + 1):

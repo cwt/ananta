@@ -460,7 +460,24 @@ class HostKeyPolicy:
         return self.recorded_key_types(entry, hostname)
 
     def server_host_key_algs(self, entry: str, hostname: str):
-        algs = self.recorded_key_types(entry, hostname)
+        # asyncssh's server_host_key_algs expects signature algorithms, not
+        # just key types. Mirror asyncssh's own known_hosts handling by
+        # expanding each recorded key to its sig_algorithms (e.g. an RSA
+        # key yields rsa-sha2-256/512 in addition to ssh-rsa), so modern
+        # servers that disable SHA-1 RSA signatures still negotiate.
+        algs: list[str] = []
+        seen: set[str] = set()
+        for blob in self._find_recorded_blobs(entry, hostname):
+            try:
+                key = asyncssh.import_public_key(blob)
+                candidates = list(key.sig_algorithms)
+            except (asyncssh.KeyImportError, ValueError):
+                candidates = [blob.split(maxsplit=1)[0]]
+            for alg in candidates:
+                name = alg.decode() if isinstance(alg, (bytes, bytearray)) else str(alg)
+                if name not in seen:
+                    seen.add(name)
+                    algs.append(name)
         return algs if algs else None
 
     def host_key_algorithms(self, entry: str, hostname: str) -> list[str]:
