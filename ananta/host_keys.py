@@ -258,9 +258,8 @@ class HostKeyPolicy:
                 return False
             if recorded_blobs:
                 # Keys are recorded for this host but none of the presented
-                # type: refuse instead of trusting on first use to avoid a
+                # kind: refuse instead of trusting on first use to avoid a
                 # key-type downgrade.
-                recorded = recorded_blobs[0]
                 existing = next(
                     (m for m in self._mismatches if m.entry == entry), None
                 )
@@ -268,17 +267,17 @@ class HostKeyPolicy:
                     self._mismatches.append(
                         MismatchRecord(
                             entry=entry,
-                            old_fingerprint=self._fp_of_blob(recorded),
+                            old_fingerprint="(new key type)",
                             new_fingerprint=key.get_fingerprint(),
                             new_blob=presented,
-                            old_blob=recorded,
+                            old_blob="",
                         )
                     )
                 else:
-                    existing.old_fingerprint = self._fp_of_blob(recorded)
+                    existing.old_fingerprint = "(new key type)"
                     existing.new_fingerprint = key.get_fingerprint()
                     existing.new_blob = presented
-                    existing.old_blob = recorded
+                    existing.old_blob = ""
                 return False
             if self._load_failed:
                 # Fail closed: unreadable file must not trust new keys.
@@ -470,7 +469,7 @@ class HostKeyPolicy:
         for blob in self._find_recorded_blobs(entry, hostname):
             try:
                 key = asyncssh.import_public_key(blob)
-                candidates = list(key.sig_algorithms)
+                candidates: list[object] = list(key.sig_algorithms)
             except (asyncssh.KeyImportError, ValueError):
                 candidates = [blob.split(maxsplit=1)[0]]
             for alg in candidates:

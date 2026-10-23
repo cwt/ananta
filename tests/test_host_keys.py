@@ -245,7 +245,7 @@ class TestOverrides:
         )
         policy = HostKeyPolicy(known_hosts_path=kh)
         # extra-host shares a line with web-01; override must split it.
-        presented = asyncssh.generate_private_key("ssh-ed25519")
+        presented = asyncssh.generate_private_key("ssh-rsa")
         assert policy.validate_key("web-01", "web-01", presented) is False
         policy.apply_overrides()
 
