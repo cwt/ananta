@@ -1,5 +1,11 @@
 # Ananta (formerly Hydra)
 
+[![License](https://img.shields.io/pypi/l/ananta)](LICENSE)
+[![Python Compatibility](https://img.shields.io/pypi/pyversions/ananta)](#installation)
+[![PyPI Version](https://img.shields.io/pypi/v/ananta.svg)](https://pypi.org/project/ananta/)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/cwt/ananta)<!-- [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/cwt/ananta) -->
+[![View Code Wiki](https://assets.codewiki.google/readme-badge/static.svg)](https://codewiki.google/github.com/cwt/ananta?utm_source=badge&utm_medium=github&utm_campaign=github.com/cwt/ananta)
+
 Ananta is a *powerful* command-line tool designed to simplify simultaneous SSH command execution across multiple remote hosts. It enhances workflows, automates repetitive tasks, and improves efficiency for system administrators and developers managing distributed systems.
 
 ## Namesake
